@@ -29,7 +29,15 @@ class QltyQuickFix(
         val document = PsiDocumentManager.getInstance(project).getDocument(file) ?: return
 
         WriteCommandAction.runWriteCommandAction(project, "Qlty Fix", "qlty", {
-            val sortedReplacements = suggestion.replacements.sortedByDescending { replacement ->
+            val lineCount = document.lineCount
+            val validReplacements = suggestion.replacements.filter { replacement ->
+                val range = replacement.location.range
+                val startLine = maxOf(range.startLine - 1, 0)
+                val endLine = maxOf(range.endLine - 1, 0)
+                startLine < lineCount && endLine < lineCount
+            }
+
+            val sortedReplacements = validReplacements.sortedByDescending { replacement ->
                 val range = replacement.location.range
                 document.getLineStartOffset(maxOf(range.startLine - 1, 0)) + range.startColumn
             }

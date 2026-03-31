@@ -7,7 +7,6 @@ object QltyJsonParser {
 
     private val json = Json {
         ignoreUnknownKeys = true
-        isLenient = true
         coerceInputValues = true
     }
 

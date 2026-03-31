@@ -8,6 +8,7 @@ import com.qlty.intellij.model.Issue
 import com.qlty.intellij.settings.QltySettings
 import java.io.File
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 
 class QltyCliRunner(private val project: Project) {
 
@@ -35,13 +36,13 @@ class QltyCliRunner(private val project: Project) {
         val smellsFuture = CompletableFuture.supplyAsync {
             runCommand(
                 binary,
-                listOf("smells", "--json", filePath),
+                listOf("smells", "--json", "--", filePath),
                 workDir
             )
         }
 
-        val checkOutput = checkFuture.get()
-        val smellsOutput = smellsFuture.get()
+        val checkOutput = checkFuture.get(FUTURE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        val smellsOutput = smellsFuture.get(FUTURE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
 
         val checkIssues = if (checkOutput != null) {
             QltyJsonParser.parseIssues(checkOutput).filter { it.location.path == relativePath }
@@ -50,7 +51,7 @@ class QltyCliRunner(private val project: Project) {
         }
         val smellsIssues = if (smellsOutput != null) QltyJsonParser.parseIssues(smellsOutput) else emptyList()
 
-        return checkIssues + smellsIssues
+        return (checkIssues + smellsIssues).take(MAX_ISSUES)
     }
 
     fun fixFile(filePath: String, workDir: String) {
@@ -60,11 +61,14 @@ class QltyCliRunner(private val project: Project) {
     }
 
     private fun resolveBinary(configured: String): String? {
-        if (File(configured).isAbsolute && File(configured).canExecute()) {
-            return configured
+        if (File(configured).isAbsolute) {
+            if (File(configured).canExecute() && File(configured).name == "qlty") {
+                return configured
+            }
+            return null
         }
 
-        val home = System.getProperty("user.home") ?: return configured
+        val home = System.getProperty("user.home") ?: return null
         val commonPaths = listOf(
             "$home/.qlty/bin/qlty",
             "/usr/local/bin/qlty",
@@ -77,7 +81,7 @@ class QltyCliRunner(private val project: Project) {
             }
         }
 
-        return configured
+        return null
     }
 
     private fun runCommand(binary: String, args: List<String>, workDir: String): String? {
@@ -88,11 +92,18 @@ class QltyCliRunner(private val project: Project) {
                 .withCharset(Charsets.UTF_8)
                 .withEnvironment("NO_COLOR", "1")
 
-            ScriptRunnerUtil.getProcessOutput(
+            val output = ScriptRunnerUtil.getProcessOutput(
                 commandLine,
                 ScriptRunnerUtil.STDOUT_OUTPUT_KEY_FILTER,
                 TIMEOUT_MS.toLong()
             )
+
+            if (output.length > MAX_OUTPUT_BYTES) {
+                logger.warn("Qlty output exceeded ${MAX_OUTPUT_BYTES} bytes, truncating")
+                null
+            } else {
+                output
+            }
         } catch (e: Exception) {
             logger.warn("Failed to run qlty ${args.firstOrNull()}: ${e.message}")
             null
@@ -101,5 +112,8 @@ class QltyCliRunner(private val project: Project) {
 
     companion object {
         private const val TIMEOUT_MS = 60_000
+        private const val FUTURE_TIMEOUT_MS = 90_000L
+        private const val MAX_OUTPUT_BYTES = 10 * 1024 * 1024 // 10MB
+        private const val MAX_ISSUES = 1_000
     }
 }
