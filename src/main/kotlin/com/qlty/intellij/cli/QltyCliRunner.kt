@@ -23,10 +23,12 @@ class QltyCliRunner(private val project: Project) {
             return emptyList()
         }
 
+        val relativePath = File(filePath).relativeTo(File(workDir)).path
+
         val checkFuture = CompletableFuture.supplyAsync {
             runCommand(
                 binary,
-                listOf("check", "--no-progress", "--json", "--trigger", "ide", filePath),
+                listOf("check", "--no-progress", "--json", "--trigger", "ide"),
                 workDir
             )
         }
@@ -41,7 +43,11 @@ class QltyCliRunner(private val project: Project) {
         val checkOutput = checkFuture.get()
         val smellsOutput = smellsFuture.get()
 
-        val checkIssues = if (checkOutput != null) QltyJsonParser.parseIssues(checkOutput) else emptyList()
+        val checkIssues = if (checkOutput != null) {
+            QltyJsonParser.parseIssues(checkOutput).filter { it.location.path == relativePath }
+        } else {
+            emptyList()
+        }
         val smellsIssues = if (smellsOutput != null) QltyJsonParser.parseIssues(smellsOutput) else emptyList()
 
         return checkIssues + smellsIssues
@@ -50,7 +56,7 @@ class QltyCliRunner(private val project: Project) {
     fun fixFile(filePath: String, workDir: String) {
         val settings = QltySettings.getInstance(project)
         val binary = resolveBinary(settings.qltyBinaryPath) ?: return
-        runCommand(binary, listOf("check", "--no-progress", "--fix", "--trigger", "ide", filePath), workDir)
+        runCommand(binary, listOf("check", "--no-progress", "--fix", "--trigger", "ide"), workDir)
     }
 
     private fun resolveBinary(configured: String): String? {
