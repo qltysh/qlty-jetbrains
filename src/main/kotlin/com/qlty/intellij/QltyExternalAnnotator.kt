@@ -49,16 +49,19 @@ class QltyExternalAnnotator : ExternalAnnotator<QltyInput, QltyResult>() {
 
         val settings = QltySettings.getInstance(project)
         if (!settings.enabled) {
+            logger.debug("Qlty disabled in settings, skipping: ${virtualFile.path}")
             QltyStatusBarWidget.getInstance(project)?.updateState(QltyStatusBarWidget.State.DISABLED)
             return null
         }
 
         val qltyRoot = QltyProjectDetector.findQltyRoot(virtualFile, project)
         if (qltyRoot == null) {
+            logger.debug("No .qlty/qlty.toml found for: ${virtualFile.path}")
             QltyStatusBarWidget.getInstance(project)?.updateState(QltyStatusBarWidget.State.NO_CONFIG)
             return null
         }
 
+        logger.debug("Collecting info for ${virtualFile.path} (root: $qltyRoot)")
         return QltyInput(
             filePath = virtualFile.path,
             projectRoot = qltyRoot,
@@ -72,13 +75,15 @@ class QltyExternalAnnotator : ExternalAnnotator<QltyInput, QltyResult>() {
         val widget = QltyStatusBarWidget.getInstance(input.project)
         widget?.updateState(QltyStatusBarWidget.State.ANALYZING)
 
+        logger.info("Starting Qlty analysis: ${input.filePath}")
         return try {
             val runner = QltyCliRunner(input.project)
             val issues = runner.analyzeFile(input.filePath, input.projectRoot)
             widget?.updateState(QltyStatusBarWidget.State.READY)
+            logger.info("Qlty analysis complete: ${issues.size} issues found")
             QltyResult(issues)
         } catch (e: Exception) {
-            logger.warn("Qlty analysis failed: ${e.message}")
+            logger.warn("Qlty analysis failed for ${input.filePath}", e)
             widget?.updateState(QltyStatusBarWidget.State.ERROR)
             null
         }

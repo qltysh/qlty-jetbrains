@@ -1,7 +1,9 @@
 package com.qlty.intellij.cli
 
 import com.intellij.execution.configurations.GeneralCommandLine
+import com.intellij.execution.process.ProcessOutput
 import com.intellij.execution.process.ScriptRunnerUtil
+import com.intellij.execution.util.ExecUtil
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.qlty.intellij.model.Issue
@@ -18,13 +20,17 @@ class QltyCliRunner(private val project: Project) {
         workDir: String,
     ): List<Issue> {
         val settings = QltySettings.getInstance(project)
-        if (!settings.enabled) return emptyList()
+        if (!settings.enabled) {
+            logger.info("Qlty is disabled in settings, skipping analysis")
+            return emptyList()
+        }
 
         val binary = resolveBinary(settings.qltyBinaryPath)
         if (binary == null) {
-            logger.warn("Could not find qlty binary")
+            logger.warn("Could not find qlty binary (configured: '${settings.qltyBinaryPath}')")
             return emptyList()
         }
+        logger.info("Using qlty binary: $binary")
 
         val relativePath = File(filePath).relativeTo(File(workDir)).path
 
@@ -53,7 +59,10 @@ class QltyCliRunner(private val project: Project) {
         }
         val smellsIssues = if (smellsOutput != null) QltyJsonParser.parseIssues(smellsOutput) else emptyList()
 
-        return (checkIssues + smellsIssues).take(MAX_ISSUES)
+        val allIssues = (checkIssues + smellsIssues).take(MAX_ISSUES)
+        logger.info("Qlty analysis of $relativePath: ${checkIssues.size} check issues, ${smellsIssues.size} smell issues")
+
+        return allIssues
     }
 
     fun fixFile(
@@ -61,15 +70,22 @@ class QltyCliRunner(private val project: Project) {
         workDir: String,
     ) {
         val settings = QltySettings.getInstance(project)
-        val binary = resolveBinary(settings.qltyBinaryPath) ?: return
+        val binary = resolveBinary(settings.qltyBinaryPath)
+        if (binary == null) {
+            logger.warn("Could not find qlty binary for fix, skipping")
+            return
+        }
+        logger.info("Running qlty fix in $workDir")
         runCommand(binary, listOf("check", "--no-progress", "--fix", "--trigger", "ide"), workDir)
     }
 
     private fun resolveBinary(configured: String): String? {
         if (File(configured).isAbsolute) {
             if (File(configured).canExecute() && File(configured).name == "qlty") {
+                logger.debug("Resolved absolute binary path: $configured")
                 return configured
             }
+            logger.debug("Absolute path '$configured' is not executable or not named 'qlty'")
             return null
         }
 
@@ -82,10 +98,12 @@ class QltyCliRunner(private val project: Project) {
 
         for (path in commonPaths) {
             if (File(path).canExecute()) {
+                logger.debug("Found qlty binary at: $path")
                 return path
             }
         }
 
+        logger.debug("Could not find qlty binary in common paths: $commonPaths")
         return null
     }
 
@@ -93,8 +111,11 @@ class QltyCliRunner(private val project: Project) {
         binary: String,
         args: List<String>,
         workDir: String,
-    ): String? =
-        try {
+    ): String? {
+        val fullCommand = "$binary ${args.joinToString(" ")}"
+        logger.debug("Executing: $fullCommand (cwd: $workDir)")
+
+        return try {
             val commandLine =
                 GeneralCommandLine(binary)
                     .withParameters(args)
@@ -102,22 +123,27 @@ class QltyCliRunner(private val project: Project) {
                     .withCharset(Charsets.UTF_8)
                     .withEnvironment("NO_COLOR", "1")
 
-            val output = ScriptRunnerUtil.getProcessOutput(
-                commandLine,
-                ScriptRunnerUtil.STDOUT_OUTPUT_KEY_FILTER,
-                TIMEOUT_MS.toLong(),
-            )
+            val processOutput = ExecUtil.execAndGetOutput(commandLine, TIMEOUT_MS)
 
-            if (output.length > MAX_OUTPUT_BYTES) {
-                logger.warn("Qlty output exceeded ${MAX_OUTPUT_BYTES} bytes, truncating")
+            if (processOutput.exitCode != 0) {
+                logger.info("qlty exited with code ${processOutput.exitCode} for: $fullCommand")
+                if (processOutput.stderr.isNotEmpty()) {
+                    logger.info("qlty stderr: ${processOutput.stderr.take(2000)}")
+                }
+            }
+
+            val stdout = processOutput.stdout
+            if (stdout.length > MAX_OUTPUT_BYTES) {
+                logger.warn("Qlty output exceeded ${MAX_OUTPUT_BYTES} bytes (${stdout.length}), discarding")
                 null
             } else {
-                output
+                stdout
             }
         } catch (e: Exception) {
-            logger.warn("Failed to run qlty ${args.firstOrNull()}: ${e.message}")
+            logger.warn("Failed to execute: $fullCommand", e)
             null
         }
+    }
 
     companion object {
         private const val TIMEOUT_MS = 60_000
