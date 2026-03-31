@@ -79,6 +79,20 @@ class QltyCliRunner(private val project: Project) {
         runCommand(binary, listOf("check", "--no-progress", "--fix", "--trigger", "ide"), workDir)
     }
 
+    fun formatFile(
+        filePath: String,
+        workDir: String,
+    ) {
+        val settings = QltySettings.getInstance(project)
+        val binary = resolveBinary(settings.qltyBinaryPath)
+        if (binary == null) {
+            logger.warn("Could not find qlty binary for fmt, skipping")
+            return
+        }
+        logger.info("Running qlty fmt on $filePath")
+        runCommand(binary, listOf("fmt", "--no-progress", "--", filePath), workDir)
+    }
+
     private fun resolveBinary(configured: String): String? {
         if (File(configured).isAbsolute) {
             if (File(configured).canExecute() && File(configured).name == "qlty") {

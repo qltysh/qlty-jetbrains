@@ -9,6 +9,7 @@ class QltyConfigurable(private val project: Project) : Configurable {
     private var binaryPathField: JTextField? = null
     private var enabledCheckbox: JCheckBox? = null
     private var analyzeOnSaveCheckbox: JCheckBox? = null
+    private var fmtOnSaveCheckbox: JCheckBox? = null
 
     override fun getDisplayName(): String = "Qlty"
 
@@ -18,6 +19,7 @@ class QltyConfigurable(private val project: Project) : Configurable {
         binaryPathField = JTextField(settings.qltyBinaryPath, 30)
         enabledCheckbox = JCheckBox("Enable Qlty analysis", settings.enabled)
         analyzeOnSaveCheckbox = JCheckBox("Analyze on save", settings.analyzeOnSave)
+        fmtOnSaveCheckbox = JCheckBox("Format on save (qlty fmt)", settings.fmtOnSave)
 
         panel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
@@ -34,6 +36,8 @@ class QltyConfigurable(private val project: Project) : Configurable {
             add(enabledCheckbox!!.apply { alignmentX = JPanel.LEFT_ALIGNMENT })
             add(Box.createVerticalStrut(4))
             add(analyzeOnSaveCheckbox!!.apply { alignmentX = JPanel.LEFT_ALIGNMENT })
+            add(Box.createVerticalStrut(4))
+            add(fmtOnSaveCheckbox!!.apply { alignmentX = JPanel.LEFT_ALIGNMENT })
         }
 
         return panel!!
@@ -43,7 +47,8 @@ class QltyConfigurable(private val project: Project) : Configurable {
         val settings = QltySettings.getInstance(project)
         return binaryPathField?.text != settings.qltyBinaryPath ||
             enabledCheckbox?.isSelected != settings.enabled ||
-            analyzeOnSaveCheckbox?.isSelected != settings.analyzeOnSave
+            analyzeOnSaveCheckbox?.isSelected != settings.analyzeOnSave ||
+            fmtOnSaveCheckbox?.isSelected != settings.fmtOnSave
     }
 
     override fun apply() {
@@ -51,6 +56,7 @@ class QltyConfigurable(private val project: Project) : Configurable {
         settings.qltyBinaryPath = binaryPathField?.text ?: "qlty"
         settings.enabled = enabledCheckbox?.isSelected ?: true
         settings.analyzeOnSave = analyzeOnSaveCheckbox?.isSelected ?: true
+        settings.fmtOnSave = fmtOnSaveCheckbox?.isSelected ?: false
     }
 
     override fun reset() {
@@ -58,5 +64,6 @@ class QltyConfigurable(private val project: Project) : Configurable {
         binaryPathField?.text = settings.qltyBinaryPath
         enabledCheckbox?.isSelected = settings.enabled
         analyzeOnSaveCheckbox?.isSelected = settings.analyzeOnSave
+        fmtOnSaveCheckbox?.isSelected = settings.fmtOnSave
     }
 }

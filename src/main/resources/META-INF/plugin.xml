@@ -44,6 +44,12 @@
             order="after encodingWidget"/>
     </extensions>
 
+    <applicationListeners>
+        <listener
+            class="com.qlty.intellij.listeners.QltyFmtOnSaveListener"
+            topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
+    </applicationListeners>
+
     <actions>
         <group id="Qlty.Actions" text="Qlty" popup="true">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
@@ -55,6 +61,10 @@
                     class="com.qlty.intellij.actions.AnalyzeProjectAction"
                     text="Analyze Project"
                     description="Run Qlty on the entire project"/>
+            <action id="Qlty.FormatFile"
+                    class="com.qlty.intellij.actions.FormatFileAction"
+                    text="Format Current File"
+                    description="Run qlty fmt on the current file"/>
         </group>
     </actions>
 </idea-plugin>
