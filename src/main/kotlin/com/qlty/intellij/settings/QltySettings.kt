@@ -1,0 +1,47 @@
+package com.qlty.intellij.settings
+
+import com.intellij.openapi.components.PersistentStateComponent
+import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.State
+import com.intellij.openapi.components.Storage
+import com.intellij.openapi.project.Project
+
+@Service(Service.Level.PROJECT)
+@State(
+    name = "QltySettings",
+    storages = [Storage("qlty.xml")]
+)
+class QltySettings : PersistentStateComponent<QltySettings.State> {
+
+    data class State(
+        var qltyBinaryPath: String = "qlty",
+        var enabled: Boolean = true,
+        var analyzeOnSave: Boolean = true,
+    )
+
+    private var state = State()
+
+    var qltyBinaryPath: String
+        get() = state.qltyBinaryPath
+        set(value) { state.qltyBinaryPath = value }
+
+    var enabled: Boolean
+        get() = state.enabled
+        set(value) { state.enabled = value }
+
+    var analyzeOnSave: Boolean
+        get() = state.analyzeOnSave
+        set(value) { state.analyzeOnSave = value }
+
+    override fun getState(): State = state
+
+    override fun loadState(state: State) {
+        this.state = state
+    }
+
+    companion object {
+        fun getInstance(project: Project): QltySettings {
+            return project.getService(QltySettings::class.java)
+        }
+    }
+}

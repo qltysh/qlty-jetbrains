@@ -1,0 +1,55 @@
+<idea-plugin>
+    <id>com.qlty.intellij</id>
+    <name>Qlty</name>
+    <vendor email="support@qlty.sh" url="https://qlty.sh">Qlty Software, Inc.</vendor>
+
+    <description><![CDATA[
+      Code quality and linting powered by the <a href="https://qlty.sh">Qlty CLI</a>.
+      Surfaces diagnostics from 200+ linters directly in your editor with inline quick fixes.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.lang</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <externalAnnotator
+            language=""
+            implementationClass="com.qlty.intellij.QltyExternalAnnotator"/>
+
+        <localInspection
+            language=""
+            shortName="QltyLinter"
+            displayName="Qlty Linter"
+            groupName="Qlty"
+            enabledByDefault="true"
+            level="WARNING"
+            implementationClass="com.qlty.intellij.QltyInspection"/>
+
+        <projectConfigurable
+            id="com.qlty.intellij.settings"
+            displayName="Qlty"
+            instance="com.qlty.intellij.settings.QltyConfigurable"
+            parentId="tools"/>
+
+        <projectService
+            serviceImplementation="com.qlty.intellij.settings.QltySettings"/>
+
+        <notificationGroup
+            id="Qlty Notifications"
+            displayType="BALLOON"/>
+    </extensions>
+
+    <actions>
+        <group id="Qlty.Actions" text="Qlty" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <action id="Qlty.AnalyzeFile"
+                    class="com.qlty.intellij.actions.AnalyzeFileAction"
+                    text="Analyze Current File"
+                    description="Run Qlty on the current file"/>
+            <action id="Qlty.AnalyzeProject"
+                    class="com.qlty.intellij.actions.AnalyzeProjectAction"
+                    text="Analyze Project"
+                    description="Run Qlty on the entire project"/>
+        </group>
+    </actions>
+</idea-plugin>
