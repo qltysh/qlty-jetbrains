@@ -11,10 +11,12 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 
 class QltyCliRunner(private val project: Project) {
-
     private val logger = Logger.getInstance(QltyCliRunner::class.java)
 
-    fun analyzeFile(filePath: String, workDir: String): List<Issue> {
+    fun analyzeFile(
+        filePath: String,
+        workDir: String,
+    ): List<Issue> {
         val settings = QltySettings.getInstance(project)
         if (!settings.enabled) return emptyList()
 
@@ -30,14 +32,14 @@ class QltyCliRunner(private val project: Project) {
             runCommand(
                 binary,
                 listOf("check", "--no-progress", "--json", "--trigger", "ide"),
-                workDir
+                workDir,
             )
         }
         val smellsFuture = CompletableFuture.supplyAsync {
             runCommand(
                 binary,
                 listOf("smells", "--json", "--", filePath),
-                workDir
+                workDir,
             )
         }
 
@@ -54,7 +56,10 @@ class QltyCliRunner(private val project: Project) {
         return (checkIssues + smellsIssues).take(MAX_ISSUES)
     }
 
-    fun fixFile(filePath: String, workDir: String) {
+    fun fixFile(
+        filePath: String,
+        workDir: String,
+    ) {
         val settings = QltySettings.getInstance(project)
         val binary = resolveBinary(settings.qltyBinaryPath) ?: return
         runCommand(binary, listOf("check", "--no-progress", "--fix", "--trigger", "ide"), workDir)
@@ -84,18 +89,23 @@ class QltyCliRunner(private val project: Project) {
         return null
     }
 
-    private fun runCommand(binary: String, args: List<String>, workDir: String): String? {
-        return try {
-            val commandLine = GeneralCommandLine(binary)
-                .withParameters(args)
-                .withWorkDirectory(workDir)
-                .withCharset(Charsets.UTF_8)
-                .withEnvironment("NO_COLOR", "1")
+    private fun runCommand(
+        binary: String,
+        args: List<String>,
+        workDir: String,
+    ): String? =
+        try {
+            val commandLine =
+                GeneralCommandLine(binary)
+                    .withParameters(args)
+                    .withWorkDirectory(workDir)
+                    .withCharset(Charsets.UTF_8)
+                    .withEnvironment("NO_COLOR", "1")
 
             val output = ScriptRunnerUtil.getProcessOutput(
                 commandLine,
                 ScriptRunnerUtil.STDOUT_OUTPUT_KEY_FILTER,
-                TIMEOUT_MS.toLong()
+                TIMEOUT_MS.toLong(),
             )
 
             if (output.length > MAX_OUTPUT_BYTES) {
@@ -108,7 +118,6 @@ class QltyCliRunner(private val project: Project) {
             logger.warn("Failed to run qlty ${args.firstOrNull()}: ${e.message}")
             null
         }
-    }
 
     companion object {
         private const val TIMEOUT_MS = 60_000

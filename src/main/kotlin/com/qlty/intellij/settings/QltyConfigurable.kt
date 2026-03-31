@@ -5,7 +5,6 @@ import com.intellij.openapi.project.Project
 import javax.swing.*
 
 class QltyConfigurable(private val project: Project) : Configurable {
-
     private var panel: JPanel? = null
     private var binaryPathField: JTextField? = null
     private var enabledCheckbox: JCheckBox? = null

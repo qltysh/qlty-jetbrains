@@ -12,7 +12,6 @@ class QltyQuickFix(
     private val toolAndRule: String,
     private val suggestion: Suggestion,
 ) : IntentionAction {
-
     override fun getText(): String {
         val desc = suggestion.description.ifEmpty { "Fix this $toolAndRule issue" }
         return desc
@@ -20,13 +19,20 @@ class QltyQuickFix(
 
     override fun getFamilyName(): String = "Qlty fixes"
 
-    override fun isAvailable(project: Project, editor: Editor?, file: PsiFile?): Boolean {
-        return suggestion.replacements.isNotEmpty()
-    }
+    override fun isAvailable(
+        project: Project,
+        editor: Editor?,
+        file: PsiFile?,
+    ): Boolean = suggestion.replacements.isNotEmpty()
 
-    override fun invoke(project: Project, editor: Editor?, file: PsiFile?) {
+    override fun invoke(
+        project: Project,
+        editor: Editor?,
+        file: PsiFile?,
+    ) {
         file ?: return
-        val document = PsiDocumentManager.getInstance(project).getDocument(file) ?: return
+        val document =
+            PsiDocumentManager.getInstance(project).getDocument(file) ?: return
 
         WriteCommandAction.runWriteCommandAction(project, "Qlty Fix", "qlty", {
             val lineCount = document.lineCount
@@ -57,7 +63,7 @@ class QltyQuickFix(
                 document.replaceString(
                     minOf(startOffset, document.textLength),
                     minOf(endOffset, document.textLength),
-                    replacement.data
+                    replacement.data,
                 )
             }
         })

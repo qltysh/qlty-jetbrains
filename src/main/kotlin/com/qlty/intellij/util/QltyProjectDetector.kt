@@ -6,10 +6,12 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 object QltyProjectDetector {
-
     private val cache = ConcurrentHashMap<String, String?>()
 
-    fun findQltyRoot(file: VirtualFile, project: Project): String? {
+    fun findQltyRoot(
+        file: VirtualFile,
+        project: Project,
+    ): String? {
         val filePath = file.path
         val cached = cache[filePath]
         if (cached != null) return cached
@@ -25,7 +27,10 @@ object QltyProjectDetector {
         cache.clear()
     }
 
-    private fun walkUpForQltyToml(filePath: String, projectBasePath: String?): String? {
+    private fun walkUpForQltyToml(
+        filePath: String,
+        projectBasePath: String?,
+    ): String? {
         var dir = File(filePath).parentFile
         val stopAt = projectBasePath?.let { File(it).parentFile }
 

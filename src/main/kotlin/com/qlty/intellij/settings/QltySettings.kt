@@ -9,10 +9,9 @@ import com.intellij.openapi.project.Project
 @Service(Service.Level.PROJECT)
 @State(
     name = "QltySettings",
-    storages = [Storage("qlty.xml")]
+    storages = [Storage("qlty.xml")],
 )
 class QltySettings : PersistentStateComponent<QltySettings.State> {
-
     data class State(
         var qltyBinaryPath: String = "qlty",
         var enabled: Boolean = true,
@@ -23,15 +22,21 @@ class QltySettings : PersistentStateComponent<QltySettings.State> {
 
     var qltyBinaryPath: String
         get() = state.qltyBinaryPath
-        set(value) { state.qltyBinaryPath = value }
+        set(value) {
+            state.qltyBinaryPath = value
+        }
 
     var enabled: Boolean
         get() = state.enabled
-        set(value) { state.enabled = value }
+        set(value) {
+            state.enabled = value
+        }
 
     var analyzeOnSave: Boolean
         get() = state.analyzeOnSave
-        set(value) { state.analyzeOnSave = value }
+        set(value) {
+            state.analyzeOnSave = value
+        }
 
     override fun getState(): State = state
 
@@ -40,8 +45,6 @@ class QltySettings : PersistentStateComponent<QltySettings.State> {
     }
 
     companion object {
-        fun getInstance(project: Project): QltySettings {
-            return project.getService(QltySettings::class.java)
-        }
+        fun getInstance(project: Project): QltySettings = project.getService(QltySettings::class.java)
     }
 }

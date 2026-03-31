@@ -7,10 +7,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class SeverityMapperTest {
-
-    private fun issueWith(level: String, category: String = "CATEGORY_LINT"): Issue {
-        return Issue(level = level, category = category)
-    }
+    private fun issueWith(
+        level: String,
+        category: String = "CATEGORY_LINT",
+    ): Issue = Issue(level = level, category = category)
 
     @Test
     fun highLevelMapsToError() {

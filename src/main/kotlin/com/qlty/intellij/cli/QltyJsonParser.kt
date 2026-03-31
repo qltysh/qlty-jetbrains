@@ -4,7 +4,6 @@ import com.qlty.intellij.model.Issue
 import kotlinx.serialization.json.Json
 
 object QltyJsonParser {
-
     private val json = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true

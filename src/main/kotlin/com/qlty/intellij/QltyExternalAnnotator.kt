@@ -17,7 +17,12 @@ import com.qlty.intellij.ui.QltyStatusBarWidget
 import com.qlty.intellij.util.QltyProjectDetector
 import com.qlty.intellij.util.SeverityMapper
 
-private data class AdjustedRange(val startLine: Int, val endLine: Int, val startCol: Int, val endCol: Int)
+private data class AdjustedRange(
+    val startLine: Int,
+    val endLine: Int,
+    val startCol: Int,
+    val endCol: Int,
+)
 
 data class QltyInput(
     val filePath: String,
@@ -30,12 +35,15 @@ data class QltyResult(
 )
 
 class QltyExternalAnnotator : ExternalAnnotator<QltyInput, QltyResult>() {
-
     private val logger = Logger.getInstance(QltyExternalAnnotator::class.java)
 
     override fun getPairedBatchInspectionShortName(): String = Values.INSPECTION_SHORT_NAME
 
-    override fun collectInformation(file: PsiFile, editor: Editor, hasErrors: Boolean): QltyInput? {
+    override fun collectInformation(
+        file: PsiFile,
+        editor: Editor,
+        hasErrors: Boolean,
+    ): QltyInput? {
         val virtualFile = file.virtualFile ?: return null
         val project = file.project
 
@@ -76,9 +84,14 @@ class QltyExternalAnnotator : ExternalAnnotator<QltyInput, QltyResult>() {
         }
     }
 
-    override fun apply(file: PsiFile, result: QltyResult?, holder: AnnotationHolder) {
+    override fun apply(
+        file: PsiFile,
+        result: QltyResult?,
+        holder: AnnotationHolder,
+    ) {
         result ?: return
-        val document = PsiDocumentManager.getInstance(file.project).getDocument(file) ?: return
+        val document =
+            PsiDocumentManager.getInstance(file.project).getDocument(file) ?: return
 
         for (issue in result.issues) {
             val (startLine, endLine, startCol, endCol) = adjustRangeForSmells(issue, document)
@@ -108,9 +121,11 @@ class QltyExternalAnnotator : ExternalAnnotator<QltyInput, QltyResult>() {
             val message = "$prefix${issue.message}"
             val toolAndRule = "${issue.tool}:${issue.ruleKey}"
 
-            var builder = holder.newAnnotation(severity, message)
-                .range(com.intellij.openapi.util.TextRange(clampedStart, clampedEnd))
-                .tooltip("[$toolAndRule] $message")
+            var builder =
+                holder
+                    .newAnnotation(severity, message)
+                    .range(com.intellij.openapi.util.TextRange(clampedStart, clampedEnd))
+                    .tooltip("[$toolAndRule] $message")
 
             for (suggestion in issue.suggestions) {
                 if (suggestion.replacements.isNotEmpty()) {
@@ -124,7 +139,10 @@ class QltyExternalAnnotator : ExternalAnnotator<QltyInput, QltyResult>() {
         }
     }
 
-    private fun adjustRangeForSmells(issue: Issue, document: Document): AdjustedRange {
+    private fun adjustRangeForSmells(
+        issue: Issue,
+        document: Document,
+    ): AdjustedRange {
         val range = issue.location.range
         val startLine = maxOf(range.startLine - 1, 0)
 
@@ -146,6 +164,7 @@ class QltyExternalAnnotator : ExternalAnnotator<QltyInput, QltyResult>() {
                     endCol = 0,
                 )
             }
+
             "nested-control-flow" -> {
                 val snippet = issue.snippet
                 val keyword = snippet.trimStart().split("\\s+".toRegex()).firstOrNull() ?: ""
@@ -156,6 +175,7 @@ class QltyExternalAnnotator : ExternalAnnotator<QltyInput, QltyResult>() {
                     endCol = if (keyword.isNotEmpty()) keyword.length else 0,
                 )
             }
+
             "function-complexity", "return-statements" -> {
                 val funcName = issue.message.split(" ").lastOrNull() ?: ""
                 val snippet = issue.snippet
@@ -176,6 +196,7 @@ class QltyExternalAnnotator : ExternalAnnotator<QltyInput, QltyResult>() {
                     )
                 }
             }
+
             else -> {
                 return AdjustedRange(
                     startLine = startLine,

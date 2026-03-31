@@ -6,7 +6,6 @@ import com.intellij.openapi.wm.StatusBarWidget
 import com.intellij.openapi.wm.StatusBarWidgetFactory
 
 class QltyStatusBarWidgetFactory : StatusBarWidgetFactory {
-
     override fun getId(): String = QltyStatusBarWidget.ID
 
     override fun getDisplayName(): String = "Qlty"
@@ -17,9 +16,7 @@ class QltyStatusBarWidgetFactory : StatusBarWidgetFactory {
 
     override fun isConfigurable(): Boolean = true
 
-    override fun createWidget(project: Project): StatusBarWidget {
-        return QltyStatusBarWidget(project)
-    }
+    override fun createWidget(project: Project): StatusBarWidget = QltyStatusBarWidget(project)
 
     override fun canBeEnabledOn(statusBar: StatusBar): Boolean = true
 }

@@ -4,7 +4,6 @@ import com.intellij.lang.annotation.HighlightSeverity
 import com.qlty.intellij.model.Issue
 
 object SeverityMapper {
-
     private val ERROR_CATEGORIES = setOf(
         "CATEGORY_VULNERABILITY",
         "CATEGORY_SECURITY_HOTSPOT",
@@ -26,13 +25,12 @@ object SeverityMapper {
         }
     }
 
-    fun categoryPrefix(issue: Issue): String {
-        return when (issue.category) {
+    fun categoryPrefix(issue: Issue): String =
+        when (issue.category) {
             "CATEGORY_DEPENDENCY_ALERT" -> "Dependency: "
             "CATEGORY_SECURITY_HOTSPOT" -> "Security: "
             "CATEGORY_VULNERABILITY" -> "Vulnerability: "
             "CATEGORY_SECRET" -> "Secret: "
             else -> ""
         }
-    }
 }

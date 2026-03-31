@@ -6,13 +6,20 @@ import com.intellij.openapi.wm.StatusBarWidget
 import com.intellij.util.Consumer
 import java.awt.event.MouseEvent
 
-class QltyStatusBarWidget(private val project: Project) : StatusBarWidget, StatusBarWidget.TextPresentation {
-
+class QltyStatusBarWidget(
+    private val project: Project,
+) : StatusBarWidget,
+    StatusBarWidget.TextPresentation {
     private var statusBar: StatusBar? = null
-    @Volatile var state: State = State.READY
+
+    @Volatile
+    var state: State = State.READY
         private set
 
-    enum class State(val display: String, val tooltip: String) {
+    enum class State(
+        val display: String,
+        val tooltip: String,
+    ) {
         READY("Qlty", "Qlty: Ready"),
         ANALYZING("Qlty: Analyzing...", "Qlty: Running analysis on current file"),
         ERROR("Qlty: Error", "Qlty: Analysis failed — check IDE log for details"),
@@ -49,7 +56,8 @@ class QltyStatusBarWidget(private val project: Project) : StatusBarWidget, Statu
         const val ID = "QltyStatusBar"
 
         fun getInstance(project: Project): QltyStatusBarWidget? {
-            val statusBar = com.intellij.openapi.wm.WindowManager.getInstance().getStatusBar(project)
+            val statusBar =
+                com.intellij.openapi.wm.WindowManager.getInstance().getStatusBar(project)
             return statusBar?.getWidget(ID) as? QltyStatusBarWidget
         }
     }

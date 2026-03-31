@@ -34,15 +34,17 @@ intellijPlatform {
             sinceBuild = "243"
         }
 
-        description = """
+        description =
+            """
             Code quality and linting powered by the <a href="https://qlty.sh">Qlty CLI</a>.
 
             Surfaces diagnostics from 200+ linters directly in your editor with inline quick fixes
             and bulk "Fix all in file" support. Works with all JetBrains IDEs including Rider,
             IntelliJ IDEA, WebStorm, PyCharm, and more.
-        """.trimIndent()
+            """.trimIndent()
 
-        changeNotes = """
+        changeNotes =
+            """
             <h3>0.1.0</h3>
             <ul>
                 <li>Initial release</li>
@@ -51,7 +53,7 @@ intellijPlatform {
                 <li>Batch inspection support (Analyze > Inspect Code)</li>
                 <li>Configurable CLI path</li>
             </ul>
-        """.trimIndent()
+            """.trimIndent()
 
         vendor {
             name = "Qlty Software, Inc."

@@ -10,17 +10,24 @@ import com.qlty.intellij.cli.QltyCliRunner
 import com.qlty.intellij.util.QltyProjectDetector
 
 class QltyFixFileAction : IntentionAction {
-
     override fun getText(): String = "Fix all Qlty issues in file"
 
     override fun getFamilyName(): String = "Qlty fixes"
 
-    override fun isAvailable(project: Project, editor: Editor?, file: PsiFile?): Boolean {
+    override fun isAvailable(
+        project: Project,
+        editor: Editor?,
+        file: PsiFile?,
+    ): Boolean {
         val vFile = file?.virtualFile ?: return false
         return QltyProjectDetector.findQltyRoot(vFile, project) != null
     }
 
-    override fun invoke(project: Project, editor: Editor?, file: PsiFile?) {
+    override fun invoke(
+        project: Project,
+        editor: Editor?,
+        file: PsiFile?,
+    ) {
         file ?: return
         val vFile = file.virtualFile ?: return
         val qltyRoot = QltyProjectDetector.findQltyRoot(vFile, project) ?: return

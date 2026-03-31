@@ -5,7 +5,6 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class QltyJsonParserTest {
-
     @Test
     fun parseEmptyArray() {
         val issues = QltyJsonParser.parseIssues("[]")
@@ -20,28 +19,29 @@ class QltyJsonParserTest {
 
     @Test
     fun parseSingleIssue() {
-        val json = """
-        [
-            {
-                "tool": "eslint",
-                "ruleKey": "no-unused-vars",
-                "message": "Variable 'x' is defined but never used",
-                "level": "LEVEL_MEDIUM",
-                "category": "CATEGORY_LINT",
-                "documentationUrl": "https://eslint.org/docs/rules/no-unused-vars",
-                "location": {
-                    "path": "src/index.ts",
-                    "range": {
-                        "startLine": 10,
-                        "startColumn": 5,
-                        "endLine": 10,
-                        "endColumn": 15
-                    }
-                },
-                "suggestions": []
-            }
-        ]
-        """.trimIndent()
+        val json =
+            """
+            [
+                {
+                    "tool": "eslint",
+                    "ruleKey": "no-unused-vars",
+                    "message": "Variable 'x' is defined but never used",
+                    "level": "LEVEL_MEDIUM",
+                    "category": "CATEGORY_LINT",
+                    "documentationUrl": "https://eslint.org/docs/rules/no-unused-vars",
+                    "location": {
+                        "path": "src/index.ts",
+                        "range": {
+                            "startLine": 10,
+                            "startColumn": 5,
+                            "endLine": 10,
+                            "endColumn": 15
+                        }
+                    },
+                    "suggestions": []
+                }
+            ]
+            """.trimIndent()
 
         val issues = QltyJsonParser.parseIssues(json)
         assertEquals(1, issues.size)
@@ -59,48 +59,49 @@ class QltyJsonParserTest {
 
     @Test
     fun parseIssueWithSuggestions() {
-        val json = """
-        [
-            {
-                "tool": "clippy",
-                "ruleKey": "needless_return",
-                "message": "unneeded return statement",
-                "level": "LEVEL_LOW",
-                "category": "CATEGORY_STYLE",
-                "location": {
-                    "path": "src/main.rs",
-                    "range": {
-                        "startLine": 5,
-                        "startColumn": 1,
-                        "endLine": 5,
-                        "endColumn": 20
-                    }
-                },
-                "suggestions": [
-                    {
-                        "id": "fix-1",
-                        "description": "Remove needless return",
-                        "patch": "",
-                        "source": "SUGGESTION_SOURCE_TOOL",
-                        "replacements": [
-                            {
-                                "data": "value",
-                                "location": {
-                                    "path": "src/main.rs",
-                                    "range": {
-                                        "startLine": 5,
-                                        "startColumn": 1,
-                                        "endLine": 5,
-                                        "endColumn": 20
+        val json =
+            """
+            [
+                {
+                    "tool": "clippy",
+                    "ruleKey": "needless_return",
+                    "message": "unneeded return statement",
+                    "level": "LEVEL_LOW",
+                    "category": "CATEGORY_STYLE",
+                    "location": {
+                        "path": "src/main.rs",
+                        "range": {
+                            "startLine": 5,
+                            "startColumn": 1,
+                            "endLine": 5,
+                            "endColumn": 20
+                        }
+                    },
+                    "suggestions": [
+                        {
+                            "id": "fix-1",
+                            "description": "Remove needless return",
+                            "patch": "",
+                            "source": "SUGGESTION_SOURCE_TOOL",
+                            "replacements": [
+                                {
+                                    "data": "value",
+                                    "location": {
+                                        "path": "src/main.rs",
+                                        "range": {
+                                            "startLine": 5,
+                                            "startColumn": 1,
+                                            "endLine": 5,
+                                            "endColumn": 20
+                                        }
                                     }
                                 }
-                            }
-                        ]
-                    }
-                ]
-            }
-        ]
-        """.trimIndent()
+                            ]
+                        }
+                    ]
+                }
+            ]
+            """.trimIndent()
 
         val issues = QltyJsonParser.parseIssues(json)
         assertEquals(1, issues.size)
@@ -112,28 +113,29 @@ class QltyJsonParserTest {
 
     @Test
     fun parseIgnoresUnknownFields() {
-        val json = """
-        [
-            {
-                "tool": "rubocop",
-                "ruleKey": "Style/FrozenStringLiteralComment",
-                "message": "Missing frozen string literal comment",
-                "level": "LEVEL_LOW",
-                "category": "CATEGORY_STYLE",
-                "unknownField": "should be ignored",
-                "anotherUnknown": 42,
-                "location": {
-                    "path": "app.rb",
-                    "range": {
-                        "startLine": 1,
-                        "startColumn": 1,
-                        "endLine": 1,
-                        "endColumn": 1
+        val json =
+            """
+            [
+                {
+                    "tool": "rubocop",
+                    "ruleKey": "Style/FrozenStringLiteralComment",
+                    "message": "Missing frozen string literal comment",
+                    "level": "LEVEL_LOW",
+                    "category": "CATEGORY_STYLE",
+                    "unknownField": "should be ignored",
+                    "anotherUnknown": 42,
+                    "location": {
+                        "path": "app.rb",
+                        "range": {
+                            "startLine": 1,
+                            "startColumn": 1,
+                            "endLine": 1,
+                            "endColumn": 1
+                        }
                     }
                 }
-            }
-        ]
-        """.trimIndent()
+            ]
+            """.trimIndent()
 
         val issues = QltyJsonParser.parseIssues(json)
         assertEquals(1, issues.size)
@@ -142,26 +144,27 @@ class QltyJsonParserTest {
 
     @Test
     fun parseMultipleIssues() {
-        val json = """
-        [
-            {
-                "tool": "eslint",
-                "ruleKey": "no-unused-vars",
-                "message": "Unused var",
-                "level": "LEVEL_LOW",
-                "category": "CATEGORY_LINT",
-                "location": {"path": "a.ts", "range": {"startLine": 1, "startColumn": 1, "endLine": 1, "endColumn": 5}}
-            },
-            {
-                "tool": "eslint",
-                "ruleKey": "no-console",
-                "message": "No console",
-                "level": "LEVEL_LOW",
-                "category": "CATEGORY_LINT",
-                "location": {"path": "a.ts", "range": {"startLine": 2, "startColumn": 1, "endLine": 2, "endColumn": 10}}
-            }
-        ]
-        """.trimIndent()
+        val json =
+            """
+            [
+                {
+                    "tool": "eslint",
+                    "ruleKey": "no-unused-vars",
+                    "message": "Unused var",
+                    "level": "LEVEL_LOW",
+                    "category": "CATEGORY_LINT",
+                    "location": {"path": "a.ts", "range": {"startLine": 1, "startColumn": 1, "endLine": 1, "endColumn": 5}}
+                },
+                {
+                    "tool": "eslint",
+                    "ruleKey": "no-console",
+                    "message": "No console",
+                    "level": "LEVEL_LOW",
+                    "category": "CATEGORY_LINT",
+                    "location": {"path": "a.ts", "range": {"startLine": 2, "startColumn": 1, "endLine": 2, "endColumn": 10}}
+                }
+            ]
+            """.trimIndent()
 
         val issues = QltyJsonParser.parseIssues(json)
         assertEquals(2, issues.size)
