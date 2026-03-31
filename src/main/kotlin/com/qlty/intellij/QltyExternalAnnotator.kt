@@ -13,6 +13,7 @@ import com.qlty.intellij.fixes.QltyFixFileAction
 import com.qlty.intellij.fixes.QltyQuickFix
 import com.qlty.intellij.model.Issue
 import com.qlty.intellij.settings.QltySettings
+import com.qlty.intellij.ui.QltyStatusBarWidget
 import com.qlty.intellij.util.QltyProjectDetector
 import com.qlty.intellij.util.SeverityMapper
 
@@ -39,9 +40,16 @@ class QltyExternalAnnotator : ExternalAnnotator<QltyInput, QltyResult>() {
         val project = file.project
 
         val settings = QltySettings.getInstance(project)
-        if (!settings.enabled) return null
+        if (!settings.enabled) {
+            QltyStatusBarWidget.getInstance(project)?.updateState(QltyStatusBarWidget.State.DISABLED)
+            return null
+        }
 
-        val qltyRoot = QltyProjectDetector.findQltyRoot(virtualFile, project) ?: return null
+        val qltyRoot = QltyProjectDetector.findQltyRoot(virtualFile, project)
+        if (qltyRoot == null) {
+            QltyStatusBarWidget.getInstance(project)?.updateState(QltyStatusBarWidget.State.NO_CONFIG)
+            return null
+        }
 
         return QltyInput(
             filePath = virtualFile.path,
@@ -53,12 +61,17 @@ class QltyExternalAnnotator : ExternalAnnotator<QltyInput, QltyResult>() {
     override fun doAnnotate(input: QltyInput?): QltyResult? {
         input ?: return null
 
+        val widget = QltyStatusBarWidget.getInstance(input.project)
+        widget?.updateState(QltyStatusBarWidget.State.ANALYZING)
+
         return try {
             val runner = QltyCliRunner(input.project)
             val issues = runner.analyzeFile(input.filePath, input.projectRoot)
+            widget?.updateState(QltyStatusBarWidget.State.READY)
             QltyResult(issues)
         } catch (e: Exception) {
             logger.warn("Qlty analysis failed: ${e.message}")
+            widget?.updateState(QltyStatusBarWidget.State.ERROR)
             null
         }
     }

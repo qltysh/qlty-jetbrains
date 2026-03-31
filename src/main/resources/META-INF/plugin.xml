@@ -37,6 +37,11 @@
         <notificationGroup
             id="Qlty Notifications"
             displayType="BALLOON"/>
+
+        <statusBarWidgetFactory
+            id="QltyStatusBar"
+            implementation="com.qlty.intellij.ui.QltyStatusBarWidgetFactory"
+            order="after encodingWidget"/>
     </extensions>
 
     <actions>
