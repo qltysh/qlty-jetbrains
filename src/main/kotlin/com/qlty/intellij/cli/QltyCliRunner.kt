@@ -79,6 +79,39 @@ class QltyCliRunner(private val project: Project) {
         runCommand(binary, listOf("check", "--no-progress", "--fix", "--trigger", "ide"), workDir)
     }
 
+    fun checkFileWithFilter(
+        filePath: String,
+        workDir: String,
+        tool: String,
+    ): String? {
+        val settings = QltySettings.getInstance(project)
+        val binary = resolveBinary(settings.qltyBinaryPath)
+        if (binary == null) {
+            logger.warn("Could not find qlty binary for filtered check, skipping")
+            return null
+        }
+        logger.info("Running qlty check --filter $tool on $filePath")
+        return runCommand(
+            binary,
+            listOf("check", "--all", "--no-progress", "--json", "--filter", tool, "--", filePath),
+            workDir,
+        )
+    }
+
+    fun fixProjectWithFilter(
+        workDir: String,
+        tool: String,
+    ) {
+        val settings = QltySettings.getInstance(project)
+        val binary = resolveBinary(settings.qltyBinaryPath)
+        if (binary == null) {
+            logger.warn("Could not find qlty binary for project fix, skipping")
+            return
+        }
+        logger.info("Running qlty check --fix --filter $tool in $workDir")
+        runCommand(binary, listOf("check", "--all", "--no-progress", "--fix", "--filter", tool), workDir)
+    }
+
     fun formatFile(
         filePath: String,
         workDir: String,

@@ -10,6 +10,8 @@ import com.intellij.psi.PsiFile
 import com.qlty.Values
 import com.qlty.intellij.cli.QltyCliRunner
 import com.qlty.intellij.fixes.QltyFixFileAction
+import com.qlty.intellij.fixes.QltyFixRuleInFileAction
+import com.qlty.intellij.fixes.QltyFixRuleInProjectAction
 import com.qlty.intellij.fixes.QltyQuickFix
 import com.qlty.intellij.model.Issue
 import com.qlty.intellij.settings.QltySettings
@@ -138,6 +140,8 @@ class QltyExternalAnnotator : ExternalAnnotator<QltyInput, QltyResult>() {
                 }
             }
 
+            builder = builder.withFix(QltyFixRuleInFileAction(issue.tool, issue.ruleKey))
+            builder = builder.withFix(QltyFixRuleInProjectAction(issue.tool, issue.ruleKey))
             builder = builder.withFix(QltyFixFileAction())
 
             builder.create()
