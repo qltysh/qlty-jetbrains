@@ -54,34 +54,36 @@ class QltyFmtOnSaveListener : FileDocumentManagerListener {
 
         if (targets.isEmpty()) return
 
-        // Let the normal save complete first, then format and reload
-        ApplicationManager.getApplication().invokeLater {
+        // Run formatting on a pooled thread after save completes
+        ApplicationManager.getApplication().executeOnPooledThread {
             for (target in targets) {
-                // Skip if document was modified since save (user typed between save and format)
-                if (target.document.modificationStamp != target.modificationStamp) {
-                    logger.info("Skipping qlty fmt for ${target.filePath}: document modified since save")
-                    continue
-                }
-
                 logger.info("Running qlty fmt on save: ${target.filePath}")
                 val runner = QltyCliRunner(target.project)
                 runner.formatFile(target.filePath, target.qltyRoot)
 
-                val vFile = com.intellij.openapi.vfs.LocalFileSystem.getInstance()
-                    .refreshAndFindFileByPath(target.filePath) ?: continue
+                // Reload formatted content back into the editor on the EDT
+                ApplicationManager.getApplication().invokeLater {
+                    if (target.document.modificationStamp != target.modificationStamp) {
+                        logger.info("Skipping qlty fmt reload for ${target.filePath}: document modified since save")
+                        return@invokeLater
+                    }
 
-                vFile.refresh(false, false)
-                val newContent = String(vFile.contentsToByteArray(), vFile.charset)
-                if (newContent != target.document.text) {
-                    logger.info("Qlty fmt changed file, reloading: ${target.filePath}")
-                    try {
-                        formatting.set(true)
-                        WriteCommandAction.runWriteCommandAction(target.project, "Qlty Format", "qlty", {
-                            target.document.setText(newContent)
-                        })
-                        fdm.saveDocument(target.document)
-                    } finally {
-                        formatting.set(false)
+                    val vFile = com.intellij.openapi.vfs.LocalFileSystem.getInstance()
+                        .refreshAndFindFileByPath(target.filePath) ?: return@invokeLater
+
+                    vFile.refresh(false, false)
+                    val newContent = String(vFile.contentsToByteArray(), vFile.charset)
+                    if (newContent != target.document.text) {
+                        logger.info("Qlty fmt changed file, reloading: ${target.filePath}")
+                        try {
+                            formatting.set(true)
+                            WriteCommandAction.runWriteCommandAction(target.project, "Qlty Format", "qlty", {
+                                target.document.setText(newContent)
+                            })
+                            FileDocumentManager.getInstance().saveDocument(target.document)
+                        } finally {
+                            formatting.set(false)
+                        }
                     }
                 }
             }
