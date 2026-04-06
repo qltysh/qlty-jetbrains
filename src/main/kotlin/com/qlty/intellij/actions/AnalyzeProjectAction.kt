@@ -44,7 +44,7 @@ class AnalyzeProjectAction : AnAction() {
                 }
 
                 NotificationGroupManager.getInstance()
-                    .getNotificationGroup("Qlty")
+                    .getNotificationGroup("Qlty Notifications")
                     .createNotification(message, NotificationType.INFORMATION)
                     .notify(project)
             }
