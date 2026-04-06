@@ -6,10 +6,19 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileDocumentManagerListener
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManager
 import com.qlty.intellij.cli.QltyCliRunner
 import com.qlty.intellij.settings.QltySettings
 import com.qlty.intellij.util.QltyProjectDetector
+
+private data class FmtTarget(
+    val document: Document,
+    val filePath: String,
+    val qltyRoot: String,
+    val project: Project,
+    val modificationStamp: Long,
+)
 
 class QltyFmtOnSaveListener : FileDocumentManagerListener {
     private val logger = Logger.getInstance(QltyFmtOnSaveListener::class.java)
@@ -22,16 +31,17 @@ class QltyFmtOnSaveListener : FileDocumentManagerListener {
         val unsavedDocuments = fdm.unsavedDocuments
         if (unsavedDocuments.isEmpty()) return
 
-        // Collect files to format before saving
-        data class FmtTarget(val document: Document, val filePath: String, val qltyRoot: String, val project: com.intellij.openapi.project.Project)
         val targets = mutableListOf<FmtTarget>()
 
         for (document in unsavedDocuments) {
             val vFile = fdm.getFile(document) ?: continue
 
             val project = ProjectManager.getInstance().openProjects.firstOrNull { proj ->
-                val base = proj.basePath
-                !proj.isDisposed && base != null && vFile.path.startsWith(base + "/")
+                if (proj.isDisposed) return@firstOrNull false
+                val baseDir = proj.basePath?.let {
+                    com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByPath(it)
+                } ?: return@firstOrNull false
+                com.intellij.openapi.vfs.VfsUtilCore.isAncestor(baseDir, vFile, false)
             } ?: continue
 
             val settings = QltySettings.getInstance(project)
@@ -39,7 +49,7 @@ class QltyFmtOnSaveListener : FileDocumentManagerListener {
 
             val qltyRoot = QltyProjectDetector.findQltyRoot(vFile, project) ?: continue
 
-            targets.add(FmtTarget(document, vFile.path, qltyRoot, project))
+            targets.add(FmtTarget(document, vFile.path, qltyRoot, project, document.modificationStamp))
         }
 
         if (targets.isEmpty()) return
@@ -47,6 +57,12 @@ class QltyFmtOnSaveListener : FileDocumentManagerListener {
         // Let the normal save complete first, then format and reload
         ApplicationManager.getApplication().invokeLater {
             for (target in targets) {
+                // Skip if document was modified since save (user typed between save and format)
+                if (target.document.modificationStamp != target.modificationStamp) {
+                    logger.info("Skipping qlty fmt for ${target.filePath}: document modified since save")
+                    continue
+                }
+
                 logger.info("Running qlty fmt on save: ${target.filePath}")
                 val runner = QltyCliRunner(target.project)
                 runner.formatFile(target.filePath, target.qltyRoot)
