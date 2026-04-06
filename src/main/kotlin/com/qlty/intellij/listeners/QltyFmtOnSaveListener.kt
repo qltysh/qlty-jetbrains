@@ -1,34 +1,73 @@
 package com.qlty.intellij.listeners
 
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileDocumentManagerListener
 import com.intellij.openapi.project.ProjectManager
-import com.intellij.openapi.vfs.VirtualFileManager
 import com.qlty.intellij.cli.QltyCliRunner
 import com.qlty.intellij.settings.QltySettings
 import com.qlty.intellij.util.QltyProjectDetector
 
 class QltyFmtOnSaveListener : FileDocumentManagerListener {
     private val logger = Logger.getInstance(QltyFmtOnSaveListener::class.java)
+    private val formatting = ThreadLocal.withInitial { false }
 
-    override fun beforeDocumentSaving(document: Document) {
-        val vFile = FileDocumentManager.getInstance().getFile(document) ?: return
+    override fun beforeAllDocumentsSaving() {
+        if (formatting.get()) return
 
-        val project = ProjectManager.getInstance().openProjects.firstOrNull { proj ->
-            !proj.isDisposed && vFile.path.startsWith(proj.basePath ?: "")
-        } ?: return
+        val fdm = FileDocumentManager.getInstance()
+        val unsavedDocuments = fdm.unsavedDocuments
+        if (unsavedDocuments.isEmpty()) return
 
-        val settings = QltySettings.getInstance(project)
-        if (!settings.enabled || !settings.fmtOnSave) return
+        // Collect files to format before saving
+        data class FmtTarget(val document: Document, val filePath: String, val qltyRoot: String, val project: com.intellij.openapi.project.Project)
+        val targets = mutableListOf<FmtTarget>()
 
-        val qltyRoot = QltyProjectDetector.findQltyRoot(vFile, project) ?: return
+        for (document in unsavedDocuments) {
+            val vFile = fdm.getFile(document) ?: continue
 
-        logger.info("Running qlty fmt on save: ${vFile.path}")
-        val runner = QltyCliRunner(project)
-        runner.formatFile(vFile.path, qltyRoot)
+            val project = ProjectManager.getInstance().openProjects.firstOrNull { proj ->
+                !proj.isDisposed && vFile.path.startsWith(proj.basePath ?: "")
+            } ?: continue
 
-        vFile.refresh(false, false)
+            val settings = QltySettings.getInstance(project)
+            if (!settings.enabled || !settings.fmtOnSave) continue
+
+            val qltyRoot = QltyProjectDetector.findQltyRoot(vFile, project) ?: continue
+
+            targets.add(FmtTarget(document, vFile.path, qltyRoot, project))
+        }
+
+        if (targets.isEmpty()) return
+
+        // Let the normal save complete first, then format and reload
+        ApplicationManager.getApplication().invokeLater {
+            for (target in targets) {
+                logger.info("Running qlty fmt on save: ${target.filePath}")
+                val runner = QltyCliRunner(target.project)
+                runner.formatFile(target.filePath, target.qltyRoot)
+
+                val vFile = com.intellij.openapi.vfs.LocalFileSystem.getInstance()
+                    .refreshAndFindFileByPath(target.filePath) ?: continue
+
+                vFile.refresh(false, false)
+                val newContent = String(vFile.contentsToByteArray(), vFile.charset)
+                if (newContent != target.document.text) {
+                    logger.info("Qlty fmt changed file, reloading: ${target.filePath}")
+                    try {
+                        formatting.set(true)
+                        WriteCommandAction.runWriteCommandAction(target.project, "Qlty Format", "qlty", {
+                            target.document.setText(newContent)
+                        })
+                        fdm.saveDocument(target.document)
+                    } finally {
+                        formatting.set(false)
+                    }
+                }
+            }
+        }
     }
 }
