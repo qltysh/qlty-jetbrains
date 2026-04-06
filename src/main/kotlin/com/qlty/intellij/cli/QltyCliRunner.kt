@@ -37,7 +37,7 @@ class QltyCliRunner(private val project: Project) {
         val checkFuture = CompletableFuture.supplyAsync {
             runCommand(
                 binary,
-                listOf("check", "--no-progress", "--json", "--trigger", "ide"),
+                listOf("check", "--no-progress", "--json", "--trigger", "ide", "--", filePath),
                 workDir,
             )
         }
@@ -65,6 +65,17 @@ class QltyCliRunner(private val project: Project) {
         return allIssues
     }
 
+    fun checkProject(workDir: String): String? {
+        val settings = QltySettings.getInstance(project)
+        val binary = resolveBinary(settings.qltyBinaryPath)
+        if (binary == null) {
+            logger.warn("Could not find qlty binary for project check, skipping")
+            return null
+        }
+        logger.info("Running project-wide qlty check in $workDir")
+        return runCommand(binary, listOf("check", "--all", "--no-progress", "--json", "--trigger", "ide"), workDir)
+    }
+
     fun fixFile(
         filePath: String,
         workDir: String,
@@ -75,8 +86,8 @@ class QltyCliRunner(private val project: Project) {
             logger.warn("Could not find qlty binary for fix, skipping")
             return
         }
-        logger.info("Running qlty fix in $workDir")
-        runCommand(binary, listOf("check", "--no-progress", "--fix", "--trigger", "ide"), workDir)
+        logger.info("Running qlty fix on $filePath in $workDir")
+        runCommand(binary, listOf("check", "--no-progress", "--fix", "--trigger", "ide", "--", filePath), workDir)
     }
 
     fun checkFileWithFilter(
@@ -101,6 +112,7 @@ class QltyCliRunner(private val project: Project) {
     fun fixProjectWithFilter(
         workDir: String,
         tool: String,
+        ruleKey: String,
     ) {
         val settings = QltySettings.getInstance(project)
         val binary = resolveBinary(settings.qltyBinaryPath)
@@ -108,8 +120,9 @@ class QltyCliRunner(private val project: Project) {
             logger.warn("Could not find qlty binary for project fix, skipping")
             return
         }
-        logger.info("Running qlty check --fix --filter $tool in $workDir")
-        runCommand(binary, listOf("check", "--all", "--no-progress", "--fix", "--filter", tool), workDir)
+        val filter = "$tool:$ruleKey"
+        logger.info("Running qlty check --fix --filter $filter in $workDir")
+        runCommand(binary, listOf("check", "--all", "--no-progress", "--fix", "--filter", filter), workDir)
     }
 
     fun formatFile(
@@ -127,16 +140,18 @@ class QltyCliRunner(private val project: Project) {
     }
 
     private fun resolveBinary(configured: String): String? {
+        // If an absolute path is configured, use it directly
         if (File(configured).isAbsolute) {
-            if (File(configured).canExecute() && File(configured).name == "qlty") {
+            if (File(configured).canExecute()) {
                 logger.debug("Resolved absolute binary path: $configured")
                 return configured
             }
-            logger.debug("Absolute path '$configured' is not executable or not named 'qlty'")
+            logger.debug("Absolute path '$configured' is not executable")
             return null
         }
 
-        val home = System.getProperty("user.home") ?: return null
+        // Check well-known locations first
+        val home = System.getProperty("user.home") ?: ""
         val commonPaths = listOf(
             "$home/.qlty/bin/qlty",
             "/usr/local/bin/qlty",
@@ -150,7 +165,17 @@ class QltyCliRunner(private val project: Project) {
             }
         }
 
-        logger.debug("Could not find qlty binary in common paths: $commonPaths")
+        // Fall back to searching PATH
+        val pathDirs = System.getenv("PATH")?.split(File.pathSeparator) ?: emptyList()
+        for (dir in pathDirs) {
+            val candidate = File(dir, configured)
+            if (candidate.canExecute()) {
+                logger.debug("Found qlty binary on PATH: ${candidate.absolutePath}")
+                return candidate.absolutePath
+            }
+        }
+
+        logger.debug("Could not find qlty binary '$configured' in common paths or PATH")
         return null
     }
 

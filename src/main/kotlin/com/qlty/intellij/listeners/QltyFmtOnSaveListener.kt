@@ -30,7 +30,8 @@ class QltyFmtOnSaveListener : FileDocumentManagerListener {
             val vFile = fdm.getFile(document) ?: continue
 
             val project = ProjectManager.getInstance().openProjects.firstOrNull { proj ->
-                !proj.isDisposed && vFile.path.startsWith(proj.basePath ?: "")
+                val base = proj.basePath
+                !proj.isDisposed && base != null && vFile.path.startsWith(base + "/")
             } ?: continue
 
             val settings = QltySettings.getInstance(project)

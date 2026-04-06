@@ -39,7 +39,7 @@ class QltyFixRuleInProjectAction(
         FileDocumentManager.getInstance().saveAllDocuments()
 
         val runner = QltyCliRunner(project)
-        runner.fixProjectWithFilter(qltyRoot, tool)
+        runner.fixProjectWithFilter(qltyRoot, tool, ruleKey)
 
         VirtualFileManager.getInstance().refreshWithoutFileWatcher(true)
 
