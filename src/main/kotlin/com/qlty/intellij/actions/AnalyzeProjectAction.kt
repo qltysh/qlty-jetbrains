@@ -43,9 +43,11 @@ class AnalyzeProjectAction : AnAction() {
                     "Qlty project analysis failed. Check the IDE log for details."
                 }
 
+                val notificationType = if (issueCount >= 0) NotificationType.INFORMATION else NotificationType.WARNING
+
                 NotificationGroupManager.getInstance()
                     .getNotificationGroup("Qlty Notifications")
-                    .createNotification(message, NotificationType.INFORMATION)
+                    .createNotification(message, notificationType)
                     .notify(project)
             }
         }
