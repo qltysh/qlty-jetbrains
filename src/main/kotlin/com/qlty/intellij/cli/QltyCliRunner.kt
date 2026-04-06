@@ -1,9 +1,8 @@
 package com.qlty.intellij.cli
 
 import com.intellij.execution.configurations.GeneralCommandLine
-import com.intellij.execution.process.ProcessOutput
-import com.intellij.execution.process.ScriptRunnerUtil
 import com.intellij.execution.util.ExecUtil
+import com.intellij.ide.impl.isTrusted
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.qlty.intellij.model.Issue
@@ -25,9 +24,14 @@ class QltyCliRunner(private val project: Project) {
             return emptyList()
         }
 
-        val binary = resolveBinary(settings.qltyBinaryPath)
+        if (!project.isTrusted()) {
+            logger.info("Project is not trusted, skipping Qlty analysis")
+            return emptyList()
+        }
+
+        val binary = resolveBinary()
         if (binary == null) {
-            logger.warn("Could not find qlty binary (configured: '${settings.qltyBinaryPath}')")
+            logger.warn("Could not find qlty binary")
             return emptyList()
         }
         logger.info("Using qlty binary: $binary")
@@ -70,8 +74,11 @@ class QltyCliRunner(private val project: Project) {
     }
 
     fun checkProject(workDir: String): String? {
-        val settings = QltySettings.getInstance(project)
-        val binary = resolveBinary(settings.qltyBinaryPath)
+        if (!project.isTrusted()) {
+            logger.info("Project is not trusted, skipping Qlty project check")
+            return null
+        }
+        val binary = resolveBinary()
         if (binary == null) {
             logger.warn("Could not find qlty binary for project check, skipping")
             return null
@@ -84,8 +91,8 @@ class QltyCliRunner(private val project: Project) {
         filePath: String,
         workDir: String,
     ) {
-        val settings = QltySettings.getInstance(project)
-        val binary = resolveBinary(settings.qltyBinaryPath)
+        if (!project.isTrusted()) return
+        val binary = resolveBinary()
         if (binary == null) {
             logger.warn("Could not find qlty binary for fix, skipping")
             return
@@ -99,8 +106,8 @@ class QltyCliRunner(private val project: Project) {
         workDir: String,
         tool: String,
     ): String? {
-        val settings = QltySettings.getInstance(project)
-        val binary = resolveBinary(settings.qltyBinaryPath)
+        if (!project.isTrusted()) return null
+        val binary = resolveBinary()
         if (binary == null) {
             logger.warn("Could not find qlty binary for filtered check, skipping")
             return null
@@ -118,8 +125,8 @@ class QltyCliRunner(private val project: Project) {
         tool: String,
         ruleKey: String,
     ) {
-        val settings = QltySettings.getInstance(project)
-        val binary = resolveBinary(settings.qltyBinaryPath)
+        if (!project.isTrusted()) return
+        val binary = resolveBinary()
         if (binary == null) {
             logger.warn("Could not find qlty binary for project fix, skipping")
             return
@@ -133,8 +140,8 @@ class QltyCliRunner(private val project: Project) {
         filePath: String,
         workDir: String,
     ) {
-        val settings = QltySettings.getInstance(project)
-        val binary = resolveBinary(settings.qltyBinaryPath)
+        if (!project.isTrusted()) return
+        val binary = resolveBinary()
         if (binary == null) {
             logger.warn("Could not find qlty binary for fmt, skipping")
             return
@@ -143,18 +150,7 @@ class QltyCliRunner(private val project: Project) {
         runCommand(binary, listOf("fmt", "--no-progress", "--", filePath), workDir)
     }
 
-    private fun resolveBinary(configured: String): String? {
-        // If an absolute path is configured, use it directly
-        if (File(configured).isAbsolute) {
-            if (File(configured).canExecute()) {
-                logger.debug("Resolved absolute binary path: $configured")
-                return configured
-            }
-            logger.debug("Absolute path '$configured' is not executable")
-            return null
-        }
-
-        // Check well-known locations first
+    private fun resolveBinary(): String? {
         val home = System.getProperty("user.home") ?: ""
         val commonPaths = listOf(
             "$home/.qlty/bin/qlty",
@@ -169,17 +165,17 @@ class QltyCliRunner(private val project: Project) {
             }
         }
 
-        // Fall back to searching PATH
+        // Fall back to searching PATH for "qlty"
         val pathDirs = System.getenv("PATH")?.split(File.pathSeparator) ?: emptyList()
         for (dir in pathDirs) {
-            val candidate = File(dir, configured)
+            val candidate = File(dir, "qlty")
             if (candidate.canExecute()) {
                 logger.debug("Found qlty binary on PATH: ${candidate.absolutePath}")
                 return candidate.absolutePath
             }
         }
 
-        logger.debug("Could not find qlty binary '$configured' in common paths or PATH")
+        logger.debug("Could not find qlty binary in common paths or PATH")
         return null
     }
 
