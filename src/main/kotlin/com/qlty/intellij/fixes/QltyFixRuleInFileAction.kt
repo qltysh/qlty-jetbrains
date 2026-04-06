@@ -1,6 +1,7 @@
 package com.qlty.intellij.fixes
 
 import com.intellij.codeInsight.intention.IntentionAction
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -41,65 +42,72 @@ class QltyFixRuleInFileAction(
         val qltyRoot = QltyProjectDetector.findQltyRoot(vFile, project) ?: return
 
         FileDocumentManager.getInstance().saveDocument(document)
+        val modStamp = document.modificationStamp
 
-        val runner = QltyCliRunner(project)
-        val output = runner.checkFileWithFilter(vFile.path, qltyRoot, tool) ?: return
+        ApplicationManager.getApplication().executeOnPooledThread {
+            val runner = QltyCliRunner(project)
+            val output = runner.checkFileWithFilter(vFile.path, qltyRoot, tool) ?: return@executeOnPooledThread
 
-        val issues = QltyJsonParser.parseIssues(output)
-        val relativePath = File(vFile.path).relativeTo(File(qltyRoot)).path
-        val matchingIssues = issues.filter {
-            it.location.path == relativePath &&
-                it.tool == tool &&
-                it.ruleKey == ruleKey &&
-                it.suggestions.isNotEmpty()
-        }
+            val issues = QltyJsonParser.parseIssues(output)
+            val relativePath = File(vFile.path).relativeTo(File(qltyRoot)).path
+            val matchingIssues = issues.filter {
+                it.location.path == relativePath &&
+                    it.tool == tool &&
+                    it.ruleKey == ruleKey &&
+                    it.suggestions.isNotEmpty()
+            }
 
-        val allReplacements = mutableListOf<Replacement>()
-        for (issue in matchingIssues) {
-            for (suggestion in issue.suggestions) {
-                allReplacements.addAll(suggestion.replacements)
+            val allReplacements = mutableListOf<Replacement>()
+            for (issue in matchingIssues) {
+                for (suggestion in issue.suggestions) {
+                    allReplacements.addAll(suggestion.replacements)
+                }
+            }
+
+            if (allReplacements.isEmpty()) return@executeOnPooledThread
+
+            ApplicationManager.getApplication().invokeLater {
+                if (document.modificationStamp != modStamp) return@invokeLater
+
+                WriteCommandAction.runWriteCommandAction(project, "Qlty Fix $tool:$ruleKey", "qlty", {
+                    val lineCount = document.lineCount
+                    val sortedReplacements = allReplacements
+                        .filter { r ->
+                            val startLine = maxOf(r.location.range.startLine - 1, 0)
+                            val endLine = maxOf(r.location.range.endLine - 1, 0)
+                            startLine < lineCount && endLine < lineCount
+                        }
+                        .sortedByDescending { r ->
+                            val range = r.location.range
+                            document.getLineStartOffset(maxOf(range.startLine - 1, 0)) + range.startColumn
+                        }
+
+                    for (replacement in sortedReplacements) {
+                        val range = replacement.location.range
+                        val startLine = maxOf(range.startLine - 1, 0)
+                        val endLine = maxOf(range.endLine - 1, 0)
+
+                        val startOffset = document.getLineStartOffset(startLine) + maxOf(range.startColumn - 1, 0)
+                        val endOffset = if (range.endColumn > 0) {
+                            document.getLineStartOffset(endLine) + maxOf(range.endColumn - 1, 0)
+                        } else {
+                            document.getLineEndOffset(endLine)
+                        }
+
+                        val clampedStart = minOf(startOffset, document.textLength)
+                        val clampedEnd = minOf(maxOf(endOffset, startOffset), document.textLength)
+
+                        document.replaceString(
+                            clampedStart,
+                            clampedEnd,
+                            replacement.data,
+                        )
+                    }
+                })
+
+                com.intellij.codeInsight.daemon.DaemonCodeAnalyzer.getInstance(project).restart(file)
             }
         }
-
-        if (allReplacements.isEmpty()) return
-
-        WriteCommandAction.runWriteCommandAction(project, "Qlty Fix $tool:$ruleKey", "qlty", {
-            val lineCount = document.lineCount
-            val sortedReplacements = allReplacements
-                .filter { r ->
-                    val startLine = maxOf(r.location.range.startLine - 1, 0)
-                    val endLine = maxOf(r.location.range.endLine - 1, 0)
-                    startLine < lineCount && endLine < lineCount
-                }
-                .sortedByDescending { r ->
-                    val range = r.location.range
-                    document.getLineStartOffset(maxOf(range.startLine - 1, 0)) + range.startColumn
-                }
-
-            for (replacement in sortedReplacements) {
-                val range = replacement.location.range
-                val startLine = maxOf(range.startLine - 1, 0)
-                val endLine = maxOf(range.endLine - 1, 0)
-
-                val startOffset = document.getLineStartOffset(startLine) + maxOf(range.startColumn - 1, 0)
-                val endOffset = if (range.endColumn > 0) {
-                    document.getLineStartOffset(endLine) + maxOf(range.endColumn - 1, 0)
-                } else {
-                    document.getLineEndOffset(endLine)
-                }
-
-                val clampedStart = minOf(startOffset, document.textLength)
-                val clampedEnd = minOf(maxOf(endOffset, startOffset), document.textLength)
-
-                document.replaceString(
-                    clampedStart,
-                    clampedEnd,
-                    replacement.data,
-                )
-            }
-        })
-
-        com.intellij.codeInsight.daemon.DaemonCodeAnalyzer.getInstance(project).restart(file)
     }
 
     override fun startInWriteAction(): Boolean = false

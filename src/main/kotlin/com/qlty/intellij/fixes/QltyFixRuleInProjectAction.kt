@@ -2,6 +2,7 @@ package com.qlty.intellij.fixes
 
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.codeInsight.intention.IntentionAction
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
@@ -38,12 +39,16 @@ class QltyFixRuleInProjectAction(
 
         FileDocumentManager.getInstance().saveAllDocuments()
 
-        val runner = QltyCliRunner(project)
-        runner.fixProjectWithFilter(qltyRoot, tool, ruleKey)
+        ApplicationManager.getApplication().executeOnPooledThread {
+            val runner = QltyCliRunner(project)
+            runner.fixProjectWithFilter(qltyRoot, tool, ruleKey)
 
-        VirtualFileManager.getInstance().refreshWithoutFileWatcher(true)
-
-        DaemonCodeAnalyzer.getInstance(project).restart()
+            ApplicationManager.getApplication().invokeLater {
+                VirtualFileManager.getInstance().asyncRefresh {
+                    DaemonCodeAnalyzer.getInstance(project).restart()
+                }
+            }
+        }
     }
 
     override fun startInWriteAction(): Boolean = false

@@ -1,6 +1,7 @@
 package com.qlty.intellij.fixes
 
 import com.intellij.codeInsight.intention.IntentionAction
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
@@ -34,13 +35,17 @@ class QltyFixFileAction : IntentionAction {
 
         FileDocumentManager.getInstance().saveAllDocuments()
 
-        val runner = QltyCliRunner(project)
-        runner.fixFile(vFile.path, qltyRoot)
+        ApplicationManager.getApplication().executeOnPooledThread {
+            val runner = QltyCliRunner(project)
+            runner.fixFile(vFile.path, qltyRoot)
 
-        VirtualFileManager.getInstance().refreshWithoutFileWatcher(true)
-        vFile.refresh(false, false)
-
-        com.intellij.codeInsight.daemon.DaemonCodeAnalyzer.getInstance(project).restart(file)
+            ApplicationManager.getApplication().invokeLater {
+                VirtualFileManager.getInstance().asyncRefresh {
+                    vFile.refresh(false, false)
+                    com.intellij.codeInsight.daemon.DaemonCodeAnalyzer.getInstance(project).restart(file)
+                }
+            }
+        }
     }
 
     override fun startInWriteAction(): Boolean = false
