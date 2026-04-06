@@ -127,12 +127,13 @@ class QltyExternalAnnotator : ExternalAnnotator<QltyInput, QltyResult>() {
             val prefix = SeverityMapper.categoryPrefix(issue)
             val message = "$prefix${issue.message}"
             val toolAndRule = "${issue.tool}:${issue.ruleKey}"
+            val escapedTooltip = com.intellij.openapi.util.text.StringUtil.escapeXmlEntities("[$toolAndRule] $message")
 
             var builder =
                 holder
                     .newAnnotation(severity, message)
                     .range(com.intellij.openapi.util.TextRange(clampedStart, clampedEnd))
-                    .tooltip("[$toolAndRule] $message")
+                    .tooltip(escapedTooltip)
 
             for (suggestion in issue.suggestions) {
                 if (suggestion.replacements.isNotEmpty()) {
