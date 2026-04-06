@@ -88,9 +88,12 @@ class QltyFixRuleInFileAction(
                     document.getLineEndOffset(endLine)
                 }
 
+                val clampedStart = minOf(startOffset, document.textLength)
+                val clampedEnd = minOf(maxOf(endOffset, startOffset), document.textLength)
+
                 document.replaceString(
-                    minOf(startOffset, document.textLength),
-                    minOf(endOffset, document.textLength),
+                    clampedStart,
+                    clampedEnd,
                     replacement.data,
                 )
             }
