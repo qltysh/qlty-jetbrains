@@ -57,7 +57,11 @@ class QltyCliRunner(private val project: Project) {
         } else {
             emptyList()
         }
-        val smellsIssues = if (smellsOutput != null) QltyJsonParser.parseIssues(smellsOutput) else emptyList()
+        val smellsIssues = if (smellsOutput != null) {
+            QltyJsonParser.parseIssues(smellsOutput).filter { it.location.path == relativePath }
+        } else {
+            emptyList()
+        }
 
         val allIssues = (checkIssues + smellsIssues).take(MAX_ISSUES)
         logger.info("Qlty analysis of $relativePath: ${checkIssues.size} check issues, ${smellsIssues.size} smell issues")
@@ -104,7 +108,7 @@ class QltyCliRunner(private val project: Project) {
         logger.info("Running qlty check --filter $tool on $filePath")
         return runCommand(
             binary,
-            listOf("check", "--all", "--no-progress", "--json", "--filter", tool, "--", filePath),
+            listOf("check", "--no-progress", "--json", "--filter", tool, "--", filePath),
             workDir,
         )
     }
