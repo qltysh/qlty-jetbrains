@@ -13,19 +13,12 @@ import com.intellij.openapi.project.Project
 )
 class QltySettings : PersistentStateComponent<QltySettings.State> {
     data class State(
-        var qltyBinaryPath: String = "qlty",
         var enabled: Boolean = true,
         var analyzeOnSave: Boolean = true,
         var fmtOnSave: Boolean = false,
     )
 
     private var state = State()
-
-    var qltyBinaryPath: String
-        get() = state.qltyBinaryPath
-        set(value) {
-            state.qltyBinaryPath = value
-        }
 
     var enabled: Boolean
         get() = state.enabled
