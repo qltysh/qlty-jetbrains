@@ -11,9 +11,51 @@ import java.io.File
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 
-class QltyCliRunner(private val project: Project) {
-    private val logger = Logger.getInstance(QltyCliRunner::class.java)
+interface QltyRunner {
+    fun analyzeFile(
+        filePath: String,
+        workDir: String,
+    ): List<Issue>
 
+    fun checkProject(workDir: String): String?
+
+    fun fixFile(
+        filePath: String,
+        workDir: String,
+    )
+
+    fun checkFileWithFilter(
+        filePath: String,
+        workDir: String,
+        tool: String,
+    ): String?
+
+    fun fixProjectWithFilter(
+        workDir: String,
+        tool: String,
+        ruleKey: String,
+    )
+
+    fun formatFile(
+        filePath: String,
+        workDir: String,
+    )
+}
+
+class QltyCliRunner(
+    private val project: Project,
+    trustChecker: (Project) -> Boolean = { it.isTrusted() },
+    binaryResolver: (() -> String?)? = null,
+    commandExecutor: ((String, List<String>, String) -> String?)? = null,
+    asyncExecutor: (((() -> String?) -> CompletableFuture<String?>))? = null,
+) : QltyRunner {
+    private val logger = Logger.getInstance(QltyCliRunner::class.java)
+    private val trustChecker = trustChecker
+    private val binaryResolver = binaryResolver ?: { defaultResolveBinary() }
+    private val commandExecutor = commandExecutor ?: { binary, args, workDir -> executeCommand(binary, args, workDir) }
+    private val asyncExecutor = asyncExecutor ?: { supplier -> CompletableFuture.supplyAsync(supplier) }
+
+    override
     fun analyzeFile(
         filePath: String,
         workDir: String,
@@ -24,12 +66,12 @@ class QltyCliRunner(private val project: Project) {
             return emptyList()
         }
 
-        if (!project.isTrusted()) {
+        if (!trustChecker(project)) {
             logger.info("Project is not trusted, skipping Qlty analysis")
             return emptyList()
         }
 
-        val binary = resolveBinary()
+        val binary = binaryResolver()
         if (binary == null) {
             logger.warn("Could not find qlty binary")
             return emptyList()
@@ -38,15 +80,15 @@ class QltyCliRunner(private val project: Project) {
 
         val relativePath = File(filePath).relativeTo(File(workDir)).path
 
-        val checkFuture = CompletableFuture.supplyAsync {
-            runCommand(
+        val checkFuture = asyncExecutor {
+            commandExecutor(
                 binary,
                 listOf("check", "--no-progress", "--json", "--trigger", "ide", "--", filePath),
                 workDir,
             )
         }
-        val smellsFuture = CompletableFuture.supplyAsync {
-            runCommand(
+        val smellsFuture = asyncExecutor {
+            commandExecutor(
                 binary,
                 listOf("smells", "--json", "--", filePath),
                 workDir,
@@ -73,84 +115,84 @@ class QltyCliRunner(private val project: Project) {
         return allIssues
     }
 
-    fun checkProject(workDir: String): String? {
-        if (!project.isTrusted()) {
+    override fun checkProject(workDir: String): String? {
+        if (!trustChecker(project)) {
             logger.info("Project is not trusted, skipping Qlty project check")
             return null
         }
-        val binary = resolveBinary()
+        val binary = binaryResolver()
         if (binary == null) {
             logger.warn("Could not find qlty binary for project check, skipping")
             return null
         }
         logger.info("Running project-wide qlty check in $workDir")
-        return runCommand(binary, listOf("check", "--all", "--no-progress", "--json", "--trigger", "ide"), workDir)
+        return commandExecutor(binary, listOf("check", "--all", "--no-progress", "--json", "--trigger", "ide"), workDir)
     }
 
-    fun fixFile(
+    override fun fixFile(
         filePath: String,
         workDir: String,
     ) {
-        if (!project.isTrusted()) return
-        val binary = resolveBinary()
+        if (!trustChecker(project)) return
+        val binary = binaryResolver()
         if (binary == null) {
             logger.warn("Could not find qlty binary for fix, skipping")
             return
         }
         logger.info("Running qlty fix on $filePath in $workDir")
-        runCommand(binary, listOf("check", "--no-progress", "--fix", "--trigger", "ide", "--", filePath), workDir)
+        commandExecutor(binary, listOf("check", "--no-progress", "--fix", "--trigger", "ide", "--", filePath), workDir)
     }
 
-    fun checkFileWithFilter(
+    override fun checkFileWithFilter(
         filePath: String,
         workDir: String,
         tool: String,
     ): String? {
-        if (!project.isTrusted()) return null
-        val binary = resolveBinary()
+        if (!trustChecker(project)) return null
+        val binary = binaryResolver()
         if (binary == null) {
             logger.warn("Could not find qlty binary for filtered check, skipping")
             return null
         }
         logger.info("Running qlty check --filter $tool on $filePath")
-        return runCommand(
+        return commandExecutor(
             binary,
             listOf("check", "--no-progress", "--json", "--filter", tool, "--", filePath),
             workDir,
         )
     }
 
-    fun fixProjectWithFilter(
+    override fun fixProjectWithFilter(
         workDir: String,
         tool: String,
         ruleKey: String,
     ) {
-        if (!project.isTrusted()) return
-        val binary = resolveBinary()
+        if (!trustChecker(project)) return
+        val binary = binaryResolver()
         if (binary == null) {
             logger.warn("Could not find qlty binary for project fix, skipping")
             return
         }
         val filter = "$tool:$ruleKey"
         logger.info("Running qlty check --fix --filter $filter in $workDir")
-        runCommand(binary, listOf("check", "--all", "--no-progress", "--fix", "--filter", filter), workDir)
+        commandExecutor(binary, listOf("check", "--all", "--no-progress", "--fix", "--filter", filter), workDir)
     }
 
-    fun formatFile(
+    override fun formatFile(
         filePath: String,
         workDir: String,
     ) {
-        if (!project.isTrusted()) return
-        val binary = resolveBinary()
+        if (!trustChecker(project)) return
+        val binary = binaryResolver()
         if (binary == null) {
             logger.warn("Could not find qlty binary for fmt, skipping")
             return
         }
         logger.info("Running qlty fmt on $filePath")
-        runCommand(binary, listOf("fmt", "--no-progress", "--", filePath), workDir)
+        commandExecutor(binary, listOf("fmt", "--no-progress", "--", filePath), workDir)
     }
 
-    private fun resolveBinary(): String? {
+    private fun defaultResolveBinary(): String? {
         val home = System.getProperty("user.home") ?: ""
         val commonPaths = listOf(
             "$home/.qlty/bin/qlty",
@@ -179,7 +221,7 @@ class QltyCliRunner(private val project: Project) {
         return null
     }
 
-    private fun runCommand(
+    private fun executeCommand(
         binary: String,
         args: List<String>,
         workDir: String,

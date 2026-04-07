@@ -32,13 +32,17 @@ object QltyProjectDetector {
         projectBasePath: String?,
     ): String? {
         var dir = File(filePath).parentFile
-        val stopAt = projectBasePath?.let { File(it).parentFile }
+        val projectRoot = projectBasePath?.let { File(it).absoluteFile.toPath().normalize() }
 
         while (dir != null) {
+            val dirPath = dir.absoluteFile.toPath().normalize()
+            if (projectRoot != null && !dirPath.startsWith(projectRoot)) {
+                break
+            }
             if (File(dir, ".qlty/qlty.toml").exists()) {
                 return dir.absolutePath
             }
-            if (stopAt != null && dir.absolutePath == stopAt.absolutePath) {
+            if (projectRoot != null && dirPath == projectRoot) {
                 break
             }
             dir = dir.parentFile

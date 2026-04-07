@@ -8,8 +8,9 @@ import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiFile
-import com.qlty.intellij.cli.QltyCliRunner
 import com.qlty.intellij.cli.QltyJsonParser
+import com.qlty.intellij.cli.QltyCliRunner
+import com.qlty.intellij.cli.QltyRunner
 import com.qlty.intellij.model.Replacement
 import com.qlty.intellij.util.QltyProjectDetector
 import java.io.File
@@ -17,6 +18,13 @@ import java.io.File
 class QltyFixRuleInFileAction(
     private val tool: String,
     private val ruleKey: String,
+    private val runnerFactory: (Project) -> QltyRunner = ::QltyCliRunner,
+    private val backgroundExecutor: ((() -> Unit) -> Unit) = { task ->
+        ApplicationManager.getApplication().executeOnPooledThread(task)
+    },
+    private val uiExecutor: ((() -> Unit) -> Unit) = { task ->
+        ApplicationManager.getApplication().invokeLater(task)
+    },
 ) : IntentionAction {
     override fun getText(): String = "Fix all $tool:$ruleKey issues in file"
 
@@ -44,9 +52,10 @@ class QltyFixRuleInFileAction(
         FileDocumentManager.getInstance().saveDocument(document)
         val modStamp = document.modificationStamp
 
-        ApplicationManager.getApplication().executeOnPooledThread {
-            val runner = QltyCliRunner(project)
-            val output = runner.checkFileWithFilter(vFile.path, qltyRoot, tool) ?: return@executeOnPooledThread
+        backgroundExecutor {
+            val runner = runnerFactory(project)
+            val output = runner.checkFileWithFilter(vFile.path, qltyRoot, tool)
+            if (output == null) return@backgroundExecutor
 
             val issues = QltyJsonParser.parseIssues(output)
             val relativePath = File(vFile.path).relativeTo(File(qltyRoot)).path
@@ -64,10 +73,10 @@ class QltyFixRuleInFileAction(
                 }
             }
 
-            if (allReplacements.isEmpty()) return@executeOnPooledThread
+            if (allReplacements.isEmpty()) return@backgroundExecutor
 
-            ApplicationManager.getApplication().invokeLater {
-                if (document.modificationStamp != modStamp) return@invokeLater
+            uiExecutor {
+                if (document.modificationStamp != modStamp) return@uiExecutor
 
                 WriteCommandAction.runWriteCommandAction(project, "Qlty Fix $tool:$ruleKey", "qlty", {
                     val lineCount = document.lineCount
