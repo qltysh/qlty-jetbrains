@@ -199,8 +199,8 @@ class QltyExternalAnnotator(
 
             val severity = SeverityMapper.mapSeverity(issue)
             val prefix = SeverityMapper.categoryPrefix(issue)
-            val message = "$prefix${issue.message}"
             val toolAndRule = "${issue.tool}:${issue.ruleKey}"
+            val message = "$prefix$toolAndRule: ${issue.message}"
             val escapedTooltip = com.intellij.openapi.util.text.StringUtil.escapeXmlEntities("[$toolAndRule] $message")
 
             var builder =
