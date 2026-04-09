@@ -19,6 +19,7 @@ import com.qlty.intellij.settings.QltySettings
 import com.qlty.intellij.ui.QltyStatusBarWidget
 import com.qlty.intellij.util.QltyProjectDetector
 import com.qlty.intellij.util.SeverityMapper
+import java.util.concurrent.ConcurrentHashMap
 
 internal data class AdjustedRange(
     val startLine: Int,
@@ -45,7 +46,7 @@ internal object IssueRangeAdjuster {
         }
 
         return when (issue.ruleKey) {
-            "file-complexity" -> {
+            "file-complexity", "similar-code", "identical-code" -> {
                 AdjustedRange(
                     startLine = startLine,
                     endLine = startLine,
@@ -102,6 +103,7 @@ data class QltyInput(
     val filePath: String,
     val projectRoot: String,
     val project: com.intellij.openapi.project.Project,
+    val contentHash: Int = 0,
 )
 
 data class QltyResult(
@@ -112,6 +114,7 @@ class QltyExternalAnnotator(
     private val runnerFactory: (com.intellij.openapi.project.Project) -> QltyRunner = ::QltyCliRunner,
 ) : ExternalAnnotator<QltyInput, QltyResult>() {
     private val logger = Logger.getInstance(QltyExternalAnnotator::class.java)
+    private val resultCache = ConcurrentHashMap<Int, List<Issue>>()
 
     override fun getPairedBatchInspectionShortName(): String = Values.INSPECTION_SHORT_NAME
 
@@ -137,16 +140,27 @@ class QltyExternalAnnotator(
             return null
         }
 
+        val document = PsiDocumentManager.getInstance(project).getDocument(file)
+        val contentHash = document?.text?.hashCode() ?: 0
+
         logger.debug("Collecting info for ${virtualFile.path} (root: $qltyRoot)")
         return QltyInput(
             filePath = virtualFile.path,
             projectRoot = qltyRoot,
             project = project,
+            contentHash = contentHash,
         )
     }
 
     override fun doAnnotate(input: QltyInput?): QltyResult? {
         input ?: return null
+
+        val cached = resultCache[input.contentHash]
+        if (cached != null) {
+            logger.debug("Cache hit for ${input.filePath} (hash=${input.contentHash})")
+            QltyStatusBarWidget.getInstance(input.project)?.updateState(QltyStatusBarWidget.State.READY)
+            return QltyResult(cached)
+        }
 
         val widget = QltyStatusBarWidget.getInstance(input.project)
         widget?.updateState(QltyStatusBarWidget.State.ANALYZING)
@@ -155,6 +169,7 @@ class QltyExternalAnnotator(
         return try {
             val runner = runnerFactory(input.project)
             val issues = runner.analyzeFile(input.filePath, input.projectRoot)
+            resultCache[input.contentHash] = issues
             widget?.updateState(QltyStatusBarWidget.State.READY)
             logger.info("Qlty analysis complete: ${issues.size} issues found")
             QltyResult(issues)
