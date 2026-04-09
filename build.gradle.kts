@@ -1,3 +1,4 @@
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
@@ -64,7 +65,7 @@ intellijPlatform {
 
     pluginVerification {
         ides {
-            ide("RD", "2025.3")
+            create(IntelliJPlatformType.Rider, "2025.3")
         }
     }
 }
