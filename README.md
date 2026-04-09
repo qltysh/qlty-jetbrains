@@ -5,6 +5,8 @@ development process and GitHub pull request workflows.
 
 This plugin brings Qlty's code quality analysis directly into JetBrains IDEs.
 
+![Qlty in action](images/screenshots/problems.png)
+
 ## Features
 
 - **Inline diagnostics** — Issues from `qlty check` and `qlty smells` displayed as editor annotations
