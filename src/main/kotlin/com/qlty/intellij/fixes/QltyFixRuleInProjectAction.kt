@@ -9,11 +9,19 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.psi.PsiFile
 import com.qlty.intellij.cli.QltyCliRunner
+import com.qlty.intellij.cli.QltyRunner
 import com.qlty.intellij.util.QltyProjectDetector
 
 class QltyFixRuleInProjectAction(
     private val tool: String,
     private val ruleKey: String,
+    private val runnerFactory: (Project) -> QltyRunner = ::QltyCliRunner,
+    private val backgroundExecutor: ((() -> Unit) -> Unit) = { task ->
+        ApplicationManager.getApplication().executeOnPooledThread(task)
+    },
+    private val uiExecutor: ((() -> Unit) -> Unit) = { task ->
+        ApplicationManager.getApplication().invokeLater(task)
+    },
 ) : IntentionAction {
     override fun getText(): String = "Fix all $tool:$ruleKey issues in project"
 
@@ -39,11 +47,11 @@ class QltyFixRuleInProjectAction(
 
         FileDocumentManager.getInstance().saveAllDocuments()
 
-        ApplicationManager.getApplication().executeOnPooledThread {
-            val runner = QltyCliRunner(project)
+        backgroundExecutor {
+            val runner = runnerFactory(project)
             runner.fixProjectWithFilter(qltyRoot, tool, ruleKey)
 
-            ApplicationManager.getApplication().invokeLater {
+            uiExecutor {
                 VirtualFileManager.getInstance().asyncRefresh {
                     DaemonCodeAnalyzer.getInstance(project).restart()
                 }
