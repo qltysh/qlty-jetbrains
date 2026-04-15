@@ -1,5 +1,5 @@
 <idea-plugin>
-    <id>com.qlty.intellij</id>
+    <id>com.qlty.jetbrains</id>
     <name>Qlty</name>
     <vendor email="support@qlty.sh" url="https://qlty.sh">Qlty Software, Inc.</vendor>
 
