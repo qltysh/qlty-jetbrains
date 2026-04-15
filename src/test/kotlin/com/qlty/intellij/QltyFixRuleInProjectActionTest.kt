@@ -29,6 +29,11 @@ class QltyFixRuleInProjectActionTest : BasePlatformTestCase() {
     }
 
     fun testIsAvailableReturnsFalseWhenNoQltyConfig() {
+        // Ensure no qlty config exists (previous tests may have created one in the same project dir)
+        val projectRoot = requireNotNull(project.basePath)
+        File(projectRoot, ".qlty/qlty.toml").delete()
+        File(projectRoot, ".qlty").delete()
+
         val psiFile = createProjectFile("src/demo.kt", "fun demo() = Unit\n")
         val action = QltyFixRuleInProjectAction(tool = "eslint", ruleKey = "no-unused-vars")
 
