@@ -1,9 +1,11 @@
 package com.qlty.intellij.cli
 
+import com.intellij.openapi.diagnostic.Logger
 import com.qlty.intellij.model.Issue
 import kotlinx.serialization.json.Json
 
 object QltyJsonParser {
+    private val logger = Logger.getInstance(QltyJsonParser::class.java)
     private val json = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true
@@ -14,6 +16,11 @@ object QltyJsonParser {
         if (trimmed.isEmpty() || trimmed == "[]") {
             return emptyList()
         }
-        return json.decodeFromString<List<Issue>>(trimmed)
+        return try {
+            json.decodeFromString<List<Issue>>(trimmed)
+        } catch (e: Exception) {
+            logger.warn("Failed to parse Qlty JSON output: ${e.message}")
+            emptyList()
+        }
     }
 }
