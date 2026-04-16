@@ -143,6 +143,22 @@ class QltyJsonParserTest {
     }
 
     @Test
+    fun parseMalformedJsonReturnsEmptyList() {
+        val issues = QltyJsonParser.parseIssues("{not valid json[")
+        assertTrue(issues.isEmpty())
+    }
+
+    @Test
+    fun parseJsonMissingRequiredFieldsUsesDefaults() {
+        val json = """[{"location": {"path": "test.kt"}}]"""
+        val issues = QltyJsonParser.parseIssues(json)
+        assertEquals(1, issues.size)
+        assertEquals("", issues[0].tool)
+        assertEquals("", issues[0].ruleKey)
+        assertEquals("", issues[0].message)
+    }
+
+    @Test
     fun parseMultipleIssues() {
         val json =
             """

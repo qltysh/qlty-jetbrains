@@ -70,6 +70,54 @@ class QltyFmtOnSaveListenerTest : BasePlatformTestCase() {
         assertEquals("Xhello world\n", myFixture.editor.document.text)
     }
 
+    fun testDoesNotFormatWhenPluginDisabled() {
+        createQltyConfig()
+        createProjectFile("src/demo.txt", "hello world\n")
+        QltySettings.getInstance(project).enabled = false
+        val runner = RecordingRunner()
+        val listener = QltyFmtOnSaveListener(
+            runnerFactory = { runner },
+            backgroundExecutor = { task -> task() },
+            uiExecutor = { task -> task() },
+            projectResolver = { _, _ -> project },
+            refreshedContentLoader = { "hello there\n" },
+            documentSaver = {},
+        )
+
+        WriteCommandAction.runWriteCommandAction(project) {
+            myFixture.editor.document.setText("hello world\n")
+        }
+
+        listener.beforeAllDocumentsSaving()
+
+        assertTrue("Runner should not be called when plugin is disabled", runner.formattedFiles.isEmpty())
+        assertEquals("hello world\n", myFixture.editor.document.text)
+    }
+
+    fun testDoesNotFormatWhenFmtOnSaveDisabled() {
+        createQltyConfig()
+        createProjectFile("src/demo.txt", "hello world\n")
+        QltySettings.getInstance(project).fmtOnSave = false
+        val runner = RecordingRunner()
+        val listener = QltyFmtOnSaveListener(
+            runnerFactory = { runner },
+            backgroundExecutor = { task -> task() },
+            uiExecutor = { task -> task() },
+            projectResolver = { _, _ -> project },
+            refreshedContentLoader = { "hello there\n" },
+            documentSaver = {},
+        )
+
+        WriteCommandAction.runWriteCommandAction(project) {
+            myFixture.editor.document.setText("hello world\n")
+        }
+
+        listener.beforeAllDocumentsSaving()
+
+        assertTrue("Runner should not be called when fmtOnSave is false", runner.formattedFiles.isEmpty())
+        assertEquals("hello world\n", myFixture.editor.document.text)
+    }
+
     private fun createQltyConfig() {
         val projectRoot = requireNotNull(project.basePath)
         File(projectRoot, ".qlty").mkdirs()

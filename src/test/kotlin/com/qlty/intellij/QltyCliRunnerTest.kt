@@ -74,6 +74,139 @@ class QltyCliRunnerTest : BasePlatformTestCase() {
         assertFalse(executed)
     }
 
+    fun testAnalyzeFileReturnsEmptyWhenPluginDisabled() {
+        QltySettings.getInstance(project).enabled = false
+        val runner = QltyCliRunner(
+            project = project,
+            trustChecker = { true },
+            binaryResolver = { "/bin/qlty" },
+            commandExecutor = { _, _, _ -> error("should not execute") },
+        )
+
+        val issues = runner.analyzeFile("/tmp/project/src/demo.kt", "/tmp/project")
+
+        assertTrue(issues.isEmpty())
+    }
+
+    fun testAnalyzeFileReturnsEmptyWhenBinaryNotFound() {
+        val runner = QltyCliRunner(
+            project = project,
+            trustChecker = { true },
+            binaryResolver = { null },
+            commandExecutor = { _, _, _ -> error("should not execute") },
+        )
+
+        val issues = runner.analyzeFile("/tmp/project/src/demo.kt", "/tmp/project")
+
+        assertTrue(issues.isEmpty())
+    }
+
+    fun testCheckProjectBuildsExpectedCommand() {
+        val commands = mutableListOf<Triple<String, List<String>, String>>()
+        val runner = QltyCliRunner(
+            project = project,
+            trustChecker = { true },
+            binaryResolver = { "/bin/qlty" },
+            commandExecutor = { binary, args, workDir ->
+                commands += Triple(binary, args, workDir)
+                "[]"
+            },
+        )
+
+        runner.checkProject("/tmp/project")
+
+        assertEquals(1, commands.size)
+        assertEquals(
+            Triple("/bin/qlty", listOf("check", "--all", "--no-progress", "--json", "--trigger", "ide"), "/tmp/project"),
+            commands[0],
+        )
+    }
+
+    fun testCheckProjectReturnsNullWhenUntrusted() {
+        val runner = QltyCliRunner(
+            project = project,
+            trustChecker = { false },
+            binaryResolver = { "/bin/qlty" },
+            commandExecutor = { _, _, _ -> error("should not execute") },
+        )
+
+        assertNull(runner.checkProject("/tmp/project"))
+    }
+
+    fun testCheckProjectReturnsNullWhenBinaryNotFound() {
+        val runner = QltyCliRunner(
+            project = project,
+            trustChecker = { true },
+            binaryResolver = { null },
+            commandExecutor = { _, _, _ -> error("should not execute") },
+        )
+
+        assertNull(runner.checkProject("/tmp/project"))
+    }
+
+    fun testFixFileBuildsExpectedCommand() {
+        val commands = mutableListOf<Triple<String, List<String>, String>>()
+        val runner = QltyCliRunner(
+            project = project,
+            trustChecker = { true },
+            binaryResolver = { "/bin/qlty" },
+            commandExecutor = { binary, args, workDir ->
+                commands += Triple(binary, args, workDir)
+                ""
+            },
+        )
+
+        runner.fixFile("/tmp/project/src/demo.kt", "/tmp/project")
+
+        assertEquals(1, commands.size)
+        assertEquals(
+            Triple("/bin/qlty", listOf("check", "--no-progress", "--fix", "--trigger", "ide", "--", "/tmp/project/src/demo.kt"), "/tmp/project"),
+            commands[0],
+        )
+    }
+
+    fun testCheckFileWithFilterBuildsExpectedCommand() {
+        val commands = mutableListOf<Triple<String, List<String>, String>>()
+        val runner = QltyCliRunner(
+            project = project,
+            trustChecker = { true },
+            binaryResolver = { "/bin/qlty" },
+            commandExecutor = { binary, args, workDir ->
+                commands += Triple(binary, args, workDir)
+                "[]"
+            },
+        )
+
+        runner.checkFileWithFilter("/tmp/project/src/demo.kt", "/tmp/project", "eslint")
+
+        assertEquals(1, commands.size)
+        assertEquals(
+            Triple("/bin/qlty", listOf("check", "--no-progress", "--json", "--filter", "eslint", "--", "/tmp/project/src/demo.kt"), "/tmp/project"),
+            commands[0],
+        )
+    }
+
+    fun testFixProjectWithFilterBuildsExpectedCommand() {
+        val commands = mutableListOf<Triple<String, List<String>, String>>()
+        val runner = QltyCliRunner(
+            project = project,
+            trustChecker = { true },
+            binaryResolver = { "/bin/qlty" },
+            commandExecutor = { binary, args, workDir ->
+                commands += Triple(binary, args, workDir)
+                ""
+            },
+        )
+
+        runner.fixProjectWithFilter("/tmp/project", "eslint", "no-unused-vars")
+
+        assertEquals(1, commands.size)
+        assertEquals(
+            Triple("/bin/qlty", listOf("check", "--all", "--no-progress", "--fix", "--filter", "eslint:no-unused-vars"), "/tmp/project"),
+            commands[0],
+        )
+    }
+
     fun testFormatFileBuildsExpectedCommand() {
         val commands = mutableListOf<Triple<String, List<String>, String>>()
         val runner = QltyCliRunner(
