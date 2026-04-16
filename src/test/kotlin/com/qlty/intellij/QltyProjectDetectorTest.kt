@@ -2,6 +2,7 @@ package com.qlty.intellij
 
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.testFramework.PsiTestUtil
 import com.qlty.intellij.util.QltyProjectDetector
 import java.io.File
 
@@ -47,5 +48,25 @@ class QltyProjectDetectorTest : BasePlatformTestCase() {
         val root = QltyProjectDetector.findQltyRoot(virtualFile, project)
 
         assertNull(root)
+    }
+
+    fun testFindsQltyRootInAttachedContentRootOutsideProjectBasePath() {
+        val projectRoot = requireNotNull(project.basePath)
+        val attachedRoot = File(projectRoot).parentFile.resolve("attached-root")
+        File(attachedRoot, ".qlty").mkdirs()
+        File(attachedRoot, ".qlty/qlty.toml").writeText("version = 1\n")
+
+        val sourceFile = File(attachedRoot, "README.md").apply {
+            writeText("# demo\n")
+        }
+
+        val attachedVirtualRoot = requireNotNull(LocalFileSystem.getInstance().refreshAndFindFileByIoFile(attachedRoot))
+        PsiTestUtil.addContentRoot(module, attachedVirtualRoot)
+
+        val virtualFile = requireNotNull(LocalFileSystem.getInstance().refreshAndFindFileByIoFile(sourceFile))
+
+        val root = QltyProjectDetector.findQltyRoot(virtualFile, project)
+
+        assertEquals(attachedRoot.absolutePath, root)
     }
 }

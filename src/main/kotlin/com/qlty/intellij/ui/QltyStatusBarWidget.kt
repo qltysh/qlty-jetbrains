@@ -24,7 +24,7 @@ class QltyStatusBarWidget(
         ANALYZING("Qlty: Analyzing...", "Qlty: Running analysis on current file"),
         ERROR("Qlty: Error", "Qlty: Analysis failed — check IDE log for details"),
         DISABLED("Qlty: Disabled", "Qlty: Plugin is disabled in settings"),
-        NO_CONFIG("Qlty: No Config", "Qlty: No .qlty/qlty.toml found in project"),
+        NO_CONFIG("Qlty: No Config", "Qlty: No .qlty/qlty.toml found"),
     }
 
     override fun ID(): String = ID
