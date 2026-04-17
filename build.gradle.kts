@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.qlty"
-version = "0.1.0"
+version = "0.1.1"
 
 kotlin {
     jvmToolchain(21)
@@ -46,13 +46,11 @@ intellijPlatform {
 
         changeNotes =
             """
-            <h3>0.1.0</h3>
+            <h3>0.1.1</h3>
             <ul>
-                <li>Initial release</li>
-                <li>Inline diagnostics from qlty check and qlty smells</li>
-                <li>Quick fixes from suggestions</li>
-                <li>Batch inspection support (Analyze > Inspect Code)</li>
-                <li>Configurable CLI path</li>
+                <li>Improve monorepo config detection for attached content roots</li>
+                <li>Harden plugin verification and JSON parsing behavior</li>
+                <li>Add regression test coverage across analysis, status bar, and save flows</li>
             </ul>
             """.trimIndent()
 
